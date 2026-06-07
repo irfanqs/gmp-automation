@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GMP Automation System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            min-height: 100vh; color: #e2e8f0;
+        }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+        header {
+            text-align: center; padding: 30px 0 20px;
+        }
+        header h1 { font-size: 2em; color: #60a5fa; margin-bottom: 8px; }
+        header p { color: #94a3b8; font-size: 0.95em; }
+
+        .card {
+            background: rgba(30, 41, 59, 0.8); border-radius: 16px;
+            padding: 28px; margin-bottom: 20px;
+            border: 1px solid rgba(96, 165, 250, 0.2);
+            backdrop-filter: blur(10px);
+        }
+        .card h2 {
+            font-size: 1.15em; color: #60a5fa; margin-bottom: 16px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .card h2 .step {
+            background: #3b82f6; color: #fff; border-radius: 50%;
+            width: 28px; height: 28px; display: flex; align-items: center;
+            justify-content: center; font-size: 0.85em; flex-shrink: 0;
+        }
+
+        label { display: block; font-weight: 600; margin-bottom: 6px; color: #cbd5e1; font-size: 0.9em; }
+
+        input[type="password"], input[type="text"] {
+            width: 100%; padding: 12px 16px; border-radius: 10px;
+            border: 1px solid rgba(96, 165, 250, 0.3); background: rgba(15, 23, 42, 0.6);
+            color: #e2e8f0; font-size: 0.95em; outline: none; transition: border 0.2s;
+        }
+        input:focus { border-color: #3b82f6; }
+
+        .test-type-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+        }
+        .test-type-btn {
+            padding: 14px; border-radius: 10px; border: 2px solid rgba(96, 165, 250, 0.2);
+            background: rgba(15, 23, 42, 0.4); color: #94a3b8; cursor: pointer;
+            text-align: left; font-size: 0.88em; transition: all 0.2s;
+        }
+        .test-type-btn:hover { border-color: rgba(96, 165, 250, 0.5); background: rgba(59, 130, 246, 0.1); }
+        .test-type-btn.selected {
+            border-color: #3b82f6; background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa; font-weight: 600;
+        }
+        .test-type-btn .label { font-weight: 600; color: #e2e8f0; margin-bottom: 2px; }
+        .test-type-btn.selected .label { color: #60a5fa; }
+        .test-type-btn .desc { font-size: 0.82em; color: #64748b; }
+        .test-type-btn.selected .desc { color: #93c5fd; }
+
+        .upload-area {
+            border: 2px dashed rgba(96, 165, 250, 0.3); border-radius: 12px;
+            padding: 40px; text-align: center; cursor: pointer;
+            transition: all 0.3s; background: rgba(15, 23, 42, 0.3);
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #3b82f6; background: rgba(59, 130, 246, 0.08);
+        }
+        .upload-area .icon { font-size: 2.5em; margin-bottom: 10px; }
+        .upload-area .text { color: #94a3b8; }
+        .upload-area .subtext { color: #64748b; font-size: 0.85em; margin-top: 6px; }
+
+        .file-list { margin-top: 12px; }
+        .file-item {
+            display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+            background: rgba(15, 23, 42, 0.5); border-radius: 8px; margin-bottom: 6px;
+            font-size: 0.88em;
+        }
+        .file-item .name { flex: 1; color: #cbd5e1; }
+        .file-item .size { color: #64748b; font-size: 0.82em; }
+        .file-item .remove {
+            color: #ef4444; cursor: pointer; font-weight: bold;
+            padding: 2px 6px; border-radius: 4px;
+        }
+        .file-item .remove:hover { background: rgba(239, 68, 68, 0.15); }
+
+        .submit-btn {
+            width: 100%; padding: 16px; border: none; border-radius: 12px;
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            color: #fff; font-size: 1.1em; font-weight: 700; cursor: pointer;
+            transition: all 0.3s; letter-spacing: 0.5px;
+        }
+        .submit-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35); }
+        .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .progress-bar {
+            display: none; margin-top: 16px; background: rgba(15, 23, 42, 0.6);
+            border-radius: 10px; overflow: hidden; height: 8px;
+        }
+        .progress-bar .fill {
+            height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa);
+            border-radius: 10px; width: 0%; transition: width 0.5s;
+        }
+        .status-msg {
+            margin-top: 12px; padding: 14px; border-radius: 10px;
+            font-size: 0.92em; display: none;
+        }
+        .status-msg.processing { background: rgba(59, 130, 246, 0.15); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .status-msg.success { background: rgba(34, 197, 94, 0.12); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .status-msg.error { background: rgba(239, 68, 68, 0.12); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+        .download-btn {
+            display: inline-block; padding: 12px 24px; border-radius: 10px;
+            background: linear-gradient(135deg, #16a34a, #22c55e); color: #fff;
+            text-decoration: none; font-weight: 600; margin-top: 10px;
+            transition: all 0.2s;
+        }
+        .download-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); }
+
+        .info-box {
+            background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 10px; padding: 14px; margin-bottom: 16px;
+            font-size: 0.85em; color: #93c5fd; line-height: 1.6;
+        }
+        .info-box strong { color: #60a5fa; }
+
+        .spinner {
+            display: inline-block; width: 18px; height: 18px;
+            border: 3px solid rgba(255,255,255,0.3); border-top-color: #fff;
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+            vertical-align: middle; margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 600px) {
+            .test-type-grid { grid-template-columns: 1fr; }
+            header h1 { font-size: 1.5em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏭 GMP Automation System</h1>
+            <p>환경측정 PDF → Excel 자동 변환 시스템</p>
+        </header>
+
+        <!-- Step 1: API Key -->
+        <div class="card">
+            <h2><span class="step">1</span> Anthropic API Key 입력</h2>
+            <div class="info-box">
+                <strong>ℹ️ API Key란?</strong> PDF에서 데이터를 추출하기 위해 Claude AI를 사용합니다.
+                API Key는 <a href="https://console.anthropic.com/" target="_blank" style="color:#60a5fa;">console.anthropic.com</a>에서 발급받을 수 있습니다.
+            </div>
+            <input type="password" id="apiKey" placeholder="sk-ant-api03-..." autocomplete="off">
+        </div>
+
+        <!-- Step 2: Test Type -->
+        <div class="card">
+            <h2><span class="step">2</span> 측정 종류 선택</h2>
+            <div class="test-type-grid">
+                <div class="test-type-btn" data-type="airborne_particle" onclick="selectType(this)">
+                    <div class="label">A. Airborne Particle Test</div>
+                    <div class="desc">부유입자 측정 → Excel (4 sheets/AHU)</div>
+                </div>
+                <div class="test-type-btn" data-type="air_velocity" onclick="selectType(this)">
+                    <div class="label">B. Air Velocity Test</div>
+                    <div class="desc">풍속 측정 → Excel (3 sheets/AHU)</div>
+                </div>
+                <div class="test-type-btn" data-type="air_change_rate" onclick="selectType(this)">
+                    <div class="label">C. Air Change Rate Test</div>
+                    <div class="desc">환기횟수 측정 → Excel (3 sheets/AHU)</div>
+                </div>
+                <div class="test-type-btn" data-type="hepa_filter" onclick="selectType(this)">
+                    <div class="label">D. HEPA Filter Test</div>
+                    <div class="desc">HEPA 필터 검사 → Excel (3 sheets/AHU)</div>
+                </div>
+                <div class="test-type-btn" data-type="airflow_pattern" onclick="selectType(this)">
+                    <div class="label">E. Airflow Pattern Test</div>
+                    <div class="desc">기류패턴 시험 → Excel (1 sheet/AHU)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Upload PDFs -->
+        <div class="card">
+            <h2><span class="step">3</span> PDF 파일 업로드</h2>
+            <div class="info-box">
+                <strong>📄 업로드 규칙:</strong> 같은 측정 종류의 PDF만 업로드하세요.
+                여러 AHU의 PDF를 한 번에 업로드할 수 있습니다.
+                각 PDF = 1 AHU × 1 학기(semester)
+            </div>
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <div class="icon">📁</div>
+                <div class="text">클릭하거나 파일을 드래그하세요</div>
+                <div class="subtext">PDF 파일만 가능 (여러 파일 동시 업로드 가능)</div>
+            </div>
+            <input type="file" id="fileInput" multiple accept=".pdf" style="display:none" onchange="handleFiles(this.files)">
+            <div class="file-list" id="fileList"></div>
+        </div>
+
+        <!-- Step 4: Generate -->
+        <div class="card">
+            <h2><span class="step">4</span> Excel 파일 생성</h2>
+            <button class="submit-btn" id="submitBtn" onclick="processFiles()" disabled>
+                🚀 Excel 자동 생성 시작
+            </button>
+            <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
+            <div class="status-msg" id="statusMsg"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedType = null;
+        let uploadedFiles = [];
+
+        function selectType(el) {
+            document.querySelectorAll('.test-type-btn').forEach(b => b.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedType = el.dataset.type;
+            updateSubmitBtn();
+        }
+
+        function handleFiles(files) {
+            for (let f of files) {
+                if (f.name.toLowerCase().endsWith('.pdf')) {
+                    uploadedFiles.push(f);
+                }
+            }
+            renderFileList();
+            updateSubmitBtn();
+        }
+
+        function removeFile(idx) {
+            uploadedFiles.splice(idx, 1);
+            renderFileList();
+            updateSubmitBtn();
+        }
+
+        function renderFileList() {
+            const list = document.getElementById('fileList');
+            if (uploadedFiles.length === 0) { list.innerHTML = ''; return; }
+            list.innerHTML = uploadedFiles.map((f, i) =>
+                `<div class="file-item">
+                    <span>📄</span>
+                    <span class="name">${f.name}</span>
+                    <span class="size">${(f.size / 1024).toFixed(1)} KB</span>
+                    <span class="remove" onclick="removeFile(${i})">✕</span>
+                </div>`
+            ).join('');
+        }
+
+        function updateSubmitBtn() {
+            const btn = document.getElementById('submitBtn');
+            const apiKey = document.getElementById('apiKey').value.trim();
+            btn.disabled = !(selectedType && uploadedFiles.length > 0 && apiKey.length > 10);
+        }
+
+        document.getElementById('apiKey').addEventListener('input', updateSubmitBtn);
+
+        // Drag & drop
+        const ua = document.getElementById('uploadArea');
+        ua.addEventListener('dragover', e => { e.preventDefault(); ua.classList.add('dragover'); });
+        ua.addEventListener('dragleave', () => ua.classList.remove('dragover'));
+        ua.addEventListener('drop', e => {
+            e.preventDefault(); ua.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        async function processFiles() {
+            const btn = document.getElementById('submitBtn');
+            const statusMsg = document.getElementById('statusMsg');
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+            const apiKey = document.getElementById('apiKey').value.trim();
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> 처리 중... (PDF 분석 중, 잠시 기다려주세요)';
+            statusMsg.className = 'status-msg processing';
+            statusMsg.style.display = 'block';
+            statusMsg.innerHTML = '⏳ PDF를 AI가 분석하고 있습니다. PDF 수에 따라 1~5분 소요될 수 있습니다...';
+            progressBar.style.display = 'block';
+            progressFill.style.width = '30%';
+
+            const formData = new FormData();
+            formData.append('test_type', selectedType);
+            formData.append('api_key', apiKey);
+            uploadedFiles.forEach(f => formData.append('pdf_files', f));
+
+            try {
+                progressFill.style.width = '60%';
+                const resp = await fetch('/process', { method: 'POST', body: formData });
+                const data = await resp.json();
+                progressFill.style.width = '100%';
+
+                if (data.error) {
+                    statusMsg.className = 'status-msg error';
+                    statusMsg.innerHTML = '❌ 오류: ' + data.error;
+                } else {
+                    statusMsg.className = 'status-msg success';
+                    let msg = `✅ 성공! ${data.ahu_count}개의 AHU 데이터가 처리되었습니다.<br>`;
+                    msg += `AHU 목록: ${data.ahu_list.map(a => 'AHU-' + a).join(', ')}<br>`;
+                    if (data.warnings && data.warnings.length > 0) {
+                        msg += `<br>⚠️ 경고:<br>${data.warnings.join('<br>')}`;
+                    }
+                    msg += `<br><a href="${data.download_url}" class="download-btn">📥 ${data.filename} 다운로드</a>`;
+                    statusMsg.innerHTML = msg;
+                }
+            } catch (err) {
+                statusMsg.className = 'status-msg error';
+                statusMsg.innerHTML = '❌ 네트워크 오류: ' + err.message;
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '🚀 Excel 자동 생성 시작';
+            updateSubmitBtn();
+        }
+    </script>
+</body>
+</html>
