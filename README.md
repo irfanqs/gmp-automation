@@ -90,19 +90,56 @@ Buka browser (Chrome/Edge) dan pergi ke: **http://localhost:5000**
 ## 📁 Struktur Folder
 ```
 gmp_automation/
-├── app.py               ← Aplikasi utama
-├── config.py             ← Konfigurasi dan konstanta
-├── ocr_engine.py         ← Mesin OCR (Claude API)
-├── excel_generator.py    ← Generator file Excel
+├── app.py                    ← Aplikasi utama
+├── config.py                  ← Konfigurasi dan konstanta
+├── ocr_engine.py               ← Mesin OCR (Claude API)
+├── deepseek_ocr/                ← Semua kode terkait DeepSeek-OCR (folder terpisah)
+│   ├── client.py                  ← Client HTTP ke backend DeepSeek-OCR (Kaggle)
+│   ├── parsers.py                 ← Parser markdown/teks OCR → JSON terstruktur
+│   ├── engine.py                  ← Mesin OCR alternatif (dipanggil dari app.py)
+│   └── kaggle_server.ipynb        ← Notebook backend (jalankan di Kaggle)
+├── excel_generator.py          ← Generator file Excel
 ├── templates/
-│   └── index.html        ← Tampilan web
-├── uploads/              ← Temporary (PDF upload)
-├── outputs/              ← Hasil Excel
-├── requirements.txt      ← Daftar library Python
-├── START_WINDOWS.bat     ← Script start (Windows)
-├── START_LINUX.sh        ← Script start (Linux/Mac)
-└── README.md             ← File ini
+│   └── index.html              ← Tampilan web
+├── uploads/                    ← Temporary (PDF upload)
+├── outputs/                    ← Hasil Excel
+├── requirements.txt            ← Daftar library Python
+├── START_WINDOWS.bat           ← Script start (Windows)
+├── START_LINUX.sh              ← Script start (Linux/Mac)
+└── README.md                   ← File ini
 ```
+
+---
+
+## 🧠 Opsi Alternatif: OCR Gratis via DeepSeek-OCR (Kaggle)
+
+Selain Claude API (berbayar), sistem ini juga mendukung backend OCR gratis menggunakan
+model [DeepSeek-OCR](https://huggingface.co/deepseek-ai/DeepSeek-OCR) yang dijalankan di Kaggle (GPU gratis).
+
+### Cara pakai:
+1. Buka https://kaggle.com/code, buat notebook baru, lalu **upload/import** file
+   `deepseek_ocr/kaggle_server.ipynb` dari folder ini.
+2. Di notebook: **Settings → Accelerator → GPU T4 x2**, **Settings → Internet → ON**.
+3. Buat akun ngrok gratis (https://dashboard.ngrok.com/get-started/your-authtoken),
+   lalu tambahkan authtoken sebagai **Kaggle Secret** bernama `NGROK_AUTHTOKEN`
+   (menu Add-ons → Secrets di notebook).
+4. Klik **Run All**. Di output cell terakhir akan muncul URL publik seperti
+   `https://xxxx.ngrok-free.app` — biarkan notebook tetap berjalan (jangan di-stop).
+5. Di aplikasi web lokal, pada Langkah 1 pilih **"DeepSeek-OCR (Kaggle)"**, lalu
+   tempel URL ngrok tersebut ke kolom endpoint.
+
+### ⚠️ Catatan penting untuk mode ini:
+- DeepSeek-OCR adalah model OCR mentah (bukan LLM instruksi seperti Claude), jadi ia hanya
+  mengubah gambar dokumen menjadi teks/tabel markdown. Aplikasi ini memakai parser Python
+  (`deepseek_parsers.py`) berbasis pencocokan header tabel untuk mengubah hasil OCR itu
+  menjadi data terstruktur.
+- Parser dibuat berdasarkan struktur tabel yang **diketahui** dari dokumen GMP (lihat prompt
+  di `ocr_engine.py`), tapi **belum dikalibrasi** dengan output nyata DeepSeek-OCR. Jika hasil
+  ekstraksi kurang akurat untuk suatu jenis dokumen, jalankan 1 PDF contoh, lihat teks mentah
+  yang dikembalikan endpoint `/ocr`, lalu sesuaikan logika pencocokan kolom di
+  `deepseek_ocr/parsers.py`.
+- Kaggle session GPU gratis punya batas waktu (± 9 jam / run, kuota mingguan terbatas) dan
+  URL ngrok berubah setiap kali notebook di-restart — pastikan endpoint di aplikasi diperbarui.
 
 ---
 

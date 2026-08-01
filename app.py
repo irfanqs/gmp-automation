@@ -10,7 +10,8 @@ import traceback
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from werkzeug.utils import secure_filename
 from config import UPLOAD_FOLDER, OUTPUT_FOLDER, get_semester_label, TEST_TYPES
-from ocr_engine import EXTRACTORS
+from ocr_engine import EXTRACTORS as CLAUDE_EXTRACTORS
+from deepseek_ocr.engine import EXTRACTORS as DEEPSEEK_EXTRACTORS
 from excel_generator import GENERATORS
 
 app = Flask(__name__)
@@ -40,13 +41,23 @@ def process():
     """Process uploaded PDFs and generate Excel files."""
     try:
         test_type = request.form.get('test_type')
+        ocr_backend = request.form.get('ocr_backend', 'claude').strip()
         api_key = request.form.get('api_key', '').strip()
+        deepseek_endpoint = request.form.get('deepseek_endpoint', '').strip()
 
-        if not test_type or test_type not in EXTRACTORS:
+        if ocr_backend not in ('claude', 'deepseek'):
+            return jsonify({'error': 'Invalid OCR backend selected.'}), 400
+
+        extractors = CLAUDE_EXTRACTORS if ocr_backend == 'claude' else DEEPSEEK_EXTRACTORS
+
+        if not test_type or test_type not in extractors:
             return jsonify({'error': 'Invalid test type selected.'}), 400
 
-        if not api_key:
+        if ocr_backend == 'claude' and not api_key:
             return jsonify({'error': 'Anthropic API Key is required.'}), 400
+
+        if ocr_backend == 'deepseek' and not deepseek_endpoint:
+            return jsonify({'error': 'DeepSeek-OCR (Kaggle) endpoint URL is required.'}), 400
 
         files = request.files.getlist('pdf_files')
         if not files or all(f.filename == '' for f in files):
@@ -66,13 +77,16 @@ def process():
             return jsonify({'error': 'No valid PDF files found.'}), 400
 
         # Extract data from each PDF
-        extractor = EXTRACTORS[test_type]
+        extractor = extractors[test_type]
         all_ahu_data = {}
         errors = []
 
         for pdf_path in saved_paths:
             try:
-                data = extractor(pdf_path, api_key=api_key)
+                if ocr_backend == 'claude':
+                    data = extractor(pdf_path, api_key=api_key)
+                else:
+                    data = extractor(pdf_path, endpoint_url=deepseek_endpoint)
                 ahu_num = str(data.get('ahu', 'unknown'))
                 date_str = data.get('date', '2025.08.01')
                 semester_label = get_semester_label(date_str)

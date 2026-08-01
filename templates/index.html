@@ -149,20 +149,41 @@
             <p>환경측정 PDF → Excel 자동 변환 시스템</p>
         </header>
 
-        <!-- Step 1: API Key -->
+        <!-- Step 1: OCR Backend -->
         <div class="card">
-            <h2><span class="step">1</span> Anthropic API Key 입력</h2>
-            <div class="info-box">
-                <strong>ℹ️ API Key란?</strong> PDF에서 데이터를 추출하기 위해 Claude AI를 사용합니다.
-                API Key는 <a href="https://console.anthropic.com/" target="_blank" style="color:#60a5fa;">console.anthropic.com</a>에서 발급받을 수 있습니다.
+            <h2><span class="step">1</span> OCR 엔진 선택</h2>
+            <div class="test-type-grid" id="backendGrid" style="grid-template-columns: 1fr 1fr; margin-bottom: 16px;">
+                <div class="test-type-btn selected" data-backend="claude" onclick="selectBackend(this)">
+                    <div class="label">☁️ Claude API</div>
+                    <div class="desc">Anthropic API Key 필요, 정확도 높음</div>
+                </div>
+                <div class="test-type-btn" data-backend="deepseek" onclick="selectBackend(this)">
+                    <div class="label">🧠 DeepSeek-OCR (Kaggle)</div>
+                    <div class="desc">Kaggle에서 실행되는 무료 OCR 백엔드</div>
+                </div>
             </div>
-            <input type="password" id="apiKey" placeholder="sk-ant-api03-..." autocomplete="off">
+
+            <div id="claudeFields">
+                <div class="info-box">
+                    <strong>ℹ️ API Key란?</strong> PDF에서 데이터를 추출하기 위해 Claude AI를 사용합니다.
+                    API Key는 <a href="https://console.anthropic.com/" target="_blank" style="color:#60a5fa;">console.anthropic.com</a>에서 발급받을 수 있습니다.
+                </div>
+                <input type="password" id="apiKey" placeholder="sk-ant-api03-..." autocomplete="off">
+            </div>
+
+            <div id="deepseekFields" style="display:none;">
+                <div class="info-box">
+                    <strong>ℹ️ DeepSeek-OCR 엔드포인트란?</strong> Kaggle 노트북(<code>deepseek_ocr/kaggle_server.ipynb</code>)을
+                    실행하면 출력창에 ngrok URL이 나타납니다 (예: <code>https://xxxx.ngrok-free.app</code>). 그 URL을 아래에 붙여넣으세요.
+                </div>
+                <input type="text" id="deepseekEndpoint" placeholder="https://xxxx.ngrok-free.app" autocomplete="off">
+            </div>
         </div>
 
         <!-- Step 2: Test Type -->
         <div class="card">
             <h2><span class="step">2</span> 측정 종류 선택</h2>
-            <div class="test-type-grid">
+            <div class="test-type-grid" id="testTypeGrid">
                 <div class="test-type-btn" data-type="airborne_particle" onclick="selectType(this)">
                     <div class="label">A. Airborne Particle Test</div>
                     <div class="desc">부유입자 측정 → Excel (4 sheets/AHU)</div>
@@ -216,12 +237,22 @@
 
     <script>
         let selectedType = null;
+        let selectedBackend = 'claude';
         let uploadedFiles = [];
 
         function selectType(el) {
-            document.querySelectorAll('.test-type-btn').forEach(b => b.classList.remove('selected'));
+            document.querySelectorAll('#testTypeGrid .test-type-btn').forEach(b => b.classList.remove('selected'));
             el.classList.add('selected');
             selectedType = el.dataset.type;
+            updateSubmitBtn();
+        }
+
+        function selectBackend(el) {
+            document.querySelectorAll('#backendGrid .test-type-btn').forEach(b => b.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedBackend = el.dataset.backend;
+            document.getElementById('claudeFields').style.display = selectedBackend === 'claude' ? 'block' : 'none';
+            document.getElementById('deepseekFields').style.display = selectedBackend === 'deepseek' ? 'block' : 'none';
             updateSubmitBtn();
         }
 
@@ -257,10 +288,13 @@
         function updateSubmitBtn() {
             const btn = document.getElementById('submitBtn');
             const apiKey = document.getElementById('apiKey').value.trim();
-            btn.disabled = !(selectedType && uploadedFiles.length > 0 && apiKey.length > 10);
+            const endpoint = document.getElementById('deepseekEndpoint').value.trim();
+            const backendReady = selectedBackend === 'claude' ? apiKey.length > 10 : endpoint.length > 8;
+            btn.disabled = !(selectedType && uploadedFiles.length > 0 && backendReady);
         }
 
         document.getElementById('apiKey').addEventListener('input', updateSubmitBtn);
+        document.getElementById('deepseekEndpoint').addEventListener('input', updateSubmitBtn);
 
         // Drag & drop
         const ua = document.getElementById('uploadArea');
@@ -277,6 +311,7 @@
             const progressBar = document.getElementById('progressBar');
             const progressFill = document.getElementById('progressFill');
             const apiKey = document.getElementById('apiKey').value.trim();
+            const deepseekEndpoint = document.getElementById('deepseekEndpoint').value.trim();
 
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner"></span> 처리 중... (PDF 분석 중, 잠시 기다려주세요)';
@@ -288,7 +323,9 @@
 
             const formData = new FormData();
             formData.append('test_type', selectedType);
+            formData.append('ocr_backend', selectedBackend);
             formData.append('api_key', apiKey);
+            formData.append('deepseek_endpoint', deepseekEndpoint);
             uploadedFiles.forEach(f => formData.append('pdf_files', f));
 
             try {
