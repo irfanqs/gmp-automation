@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "============================================================"
-echo "  GMP Automation System - Setup and Start"
+echo "  GMP Automation System - Production Start"
 echo "============================================================"
 echo ""
 
@@ -19,10 +19,10 @@ fi
 
 # Install dependencies
 echo "[1/2] Installing Python packages..."
-pip3 install -r requirements.txt
+python3 -m pip install -r requirements.txt
 
 echo ""
-echo "[2/2] Starting GMP Automation System..."
+echo "[2/2] Starting GMP Automation System with Gunicorn WSGI..."
 echo ""
 echo "============================================================"
 echo "  Open your browser and go to: http://localhost:5001"
@@ -30,4 +30,4 @@ echo "  Press Ctrl+C to stop the server."
 echo "============================================================"
 echo ""
 
-python3 app.py
+exec python3 -m gunicorn --workers 1 --bind 0.0.0.0:5001 --timeout 600 app:app
