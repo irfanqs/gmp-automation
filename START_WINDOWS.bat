@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 echo ============================================================
-echo   GMP Automation System - Setup and Start
+echo   GMP Automation System - Production Start
 echo ============================================================
 echo.
 
@@ -34,7 +34,7 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo [2/2] Starting GMP Automation System...
+echo [2/2] Starting GMP Automation System with Waitress WSGI...
 echo.
 echo ============================================================
 echo   Open your browser and go to: http://localhost:5001
@@ -42,5 +42,5 @@ echo   Press Ctrl+C to stop the server.
 echo ============================================================
 echo.
 
-python app.py
+waitress-serve --host=0.0.0.0 --port=5001 app:app
 pause
