@@ -670,6 +670,12 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
         data_rows.append({'grade': grade, 'room_num': room_num, 'name': name,
                            'value': value, 'semester': semester})
 
+    # The table is ordered with the latest semester first. Grade C and D are
+    # measured annually in August, so February charts only show Grades A and B.
+    latest_semester = table_ws.cell(row=2, column=7).value
+    if latest_semester and '상' in str(latest_semester):
+        data_rows = [row for row in data_rows if row['grade'] in ('A', 'B')]
+
     semesters = sorted({d['semester'] for d in data_rows if d['semester']}, key=semester_sort_key)
     grades_present = sorted({d['grade'] for d in data_rows if d['grade']})
 
