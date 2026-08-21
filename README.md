@@ -1,166 +1,126 @@
 # GMP Automation System
-# Sistem Automasi Pengukuran Lingkungan Pabrik Farmasi
 
-## 📋 Deskripsi
-Sistem ini secara otomatis mengubah PDF hasil scan pengukuran lingkungan (dari vendor)
-menjadi file Microsoft Excel yang rapi dan lengkap dengan tabel data, nilai rata-rata,
-conditional formatting (pewarnaan), dan chart.
+Aplikasi web lokal untuk mengubah PDF hasil pengukuran lingkungan pabrik farmasi menjadi laporan Microsoft Excel yang rapi, lengkap dengan data terstruktur, nilai rata-rata, penanda batas, dan grafik.
 
-### 5 Jenis Pengukuran yang Didukung:
-| No | Jenis Pengukuran | Input PDF | Output Excel |
-|----|-----------------|-----------|-------------|
-| A | Airborne Particle Test | PDF AA | Airborne_Particle_Test_Result_and_Graph.xlsx |
-| B | Air Velocity Test | PDF BB | Air_Velocity_Test_Result_and_Graph.xlsx |
-| C | Air Change Rate Test | PDF CC | Air_Change_Rate_Test_Result_and_Graph.xlsx |
-| D | HEPA Filter Test | PDF DD | HEPA_Filter_Test_Result_and_Graph.xlsx |
-| E | Airflow Pattern Test | PDF EE | Airflow_Pattern_Test_Result_and_Graph.xlsx |
+## Fitur
 
----
+- Memproses banyak PDF sekaligus untuk AHU yang berbeda.
+- Mendukung ekstraksi dengan Claude API atau DeepSeek-OCR melalui backend Kaggle.
+- Menghasilkan workbook Excel per jenis pengujian dengan sheet data, tabel ringkasan, dan grafik.
+- Menandai nilai di luar batas dengan warna merah.
+- Mengelompokkan hasil berdasarkan AHU dan semester pengukuran.
 
-## 🔧 Cara Install (Pertama Kali Saja)
+## Jenis Pengujian
 
-### Langkah 1: Install Python
-1. Download Python dari: https://www.python.org/downloads/
-2. Saat install, **WAJIB centang** ✅ "Add Python to PATH"
-3. Klik "Install Now"
+| Kode | Pengujian | Berkas Excel |
+| --- | --- | --- |
+| A | Airborne Particle Test | `Airborne_Particle_Test_Result_and_Graph.xlsx` |
+| B | Air Velocity Test | `Air_Velocity_Test_Result_and_Graph.xlsx` |
+| C | Air Change Rate Test | `Air_Change_Rate_Test_Result_and_Graph.xlsx` |
+| D | HEPA Filter Test | `HEPA_Filter_Test_Result_and_Graph.xlsx` |
+| E | Airflow Pattern Test | `Airflow_Pattern_Test_Result_and_Graph.xlsx` |
 
-### Langkah 2: Install Poppler (untuk membaca PDF)
-**Windows:**
-1. Download Poppler dari: https://github.com/oschwartz10612/poppler-windows/releases
-2. Extract/unzip ke folder `C:\poppler`
-3. Buka Settings → System → About → Advanced system settings → Environment Variables
-4. Di "System Variables", klik "Path" → Edit → New
-5. Tambahkan: `C:\poppler\Library\bin`
-6. Klik OK semua
+## Kebutuhan Sistem
 
-**Mac:**
-```
+- Python 3.10 atau lebih baru.
+- Poppler, untuk mengubah halaman PDF menjadi gambar.
+- Koneksi internet untuk OCR.
+- Salah satu backend OCR berikut:
+  - Anthropic API key untuk Claude API.
+  - Notebook Kaggle DeepSeek-OCR yang sedang berjalan dan URL ngrok-nya.
+
+Instal Poppler:
+
+```bash
+# macOS
 brew install poppler
-```
 
-**Linux (Ubuntu/Debian):**
-```
+# Ubuntu/Debian
 sudo apt install poppler-utils
 ```
 
-### Langkah 3: Dapatkan Anthropic API Key
-1. Buka https://console.anthropic.com/
-2. Buat akun (jika belum punya)
-3. Pergi ke menu "API Keys"
-4. Klik "Create Key"
-5. Copy API key yang muncul (dimulai dengan `sk-ant-...`)
-6. Simpan API key ini baik-baik
+Di Windows, unduh Poppler dari [poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases), ekstrak misalnya ke `C:\poppler`, lalu tambahkan `C:\poppler\Library\bin` ke `PATH`.
 
-### Langkah 4: Install Dependencies Python
-Buka Command Prompt / Terminal, lalu jalankan:
-```
-cd [folder dimana file ini berada]
+## Instalasi
+
+```bash
+git clone <URL_REPOSITORI>
+cd gmp_automation
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
----
+Untuk Windows, aktifkan virtual environment dengan:
 
-## 🚀 Cara Menggunakan
-
-### Langkah 1: Jalankan Sistem
-**Windows:** Klik 2x file `START_WINDOWS.bat`
-**Linux/Mac:** Jalankan `bash START_LINUX.sh`
-
-Atau buka Command Prompt / Terminal:
+```bat
+.venv\Scripts\activate
 ```
-cd [folder dimana file ini berada]
+
+## Menjalankan Aplikasi
+
+```bash
 python app.py
 ```
 
-### Langkah 2: Buka Browser
-Buka browser (Chrome/Edge) dan pergi ke: **http://localhost:5000**
+Atau gunakan skrip:
 
-### Langkah 3: Gunakan Sistem
-1. **Masukkan API Key** → Paste API key Anthropic Anda
-2. **Pilih Jenis Pengukuran** → Klik salah satu dari 5 jenis
-3. **Upload PDF** → Drag & drop atau klik untuk memilih file PDF
-   - Anda bisa upload banyak PDF sekaligus (untuk berbagai AHU)
-   - Pastikan semua PDF adalah jenis pengukuran yang sama
-   - Setiap PDF = 1 AHU × 1 semester
-4. **Klik "Excel 자동 생성 시작"** → Tunggu proses selesai
-5. **Download Excel** → Klik tombol download hijau
+```bash
+# macOS/Linux
+bash START_LINUX.sh
 
----
-
-## 📁 Struktur Folder
+# Windows
+START_WINDOWS.bat
 ```
+
+Buka `http://localhost:5001` di browser.
+
+## Cara Menggunakan
+
+1. Pilih backend OCR.
+2. Masukkan Anthropic API key, atau URL endpoint ngrok dari DeepSeek-OCR Kaggle.
+3. Pilih satu jenis pengujian.
+4. Unggah satu atau beberapa PDF dengan jenis pengujian yang sama.
+5. Klik tombol pembuatan Excel dan unduh berkas hasilnya.
+
+Setiap PDF sebaiknya memuat satu AHU untuk satu semester. Kualitas hasil bergantung pada keterbacaan scan PDF.
+
+## DeepSeek-OCR dengan Kaggle
+
+DeepSeek-OCR adalah alternatif tanpa biaya API Anthropic. Jalankan `deepseek_ocr/kaggle_server.ipynb` di Kaggle dengan GPU dan internet aktif.
+
+1. Buat notebook Kaggle, lalu impor `deepseek_ocr/kaggle_server.ipynb`.
+2. Atur accelerator ke GPU dan aktifkan Internet.
+3. Tambahkan Kaggle Secret bernama `NGROK_AUTHTOKEN`.
+4. Jalankan semua sel notebook.
+5. Salin URL `https://*.ngrok-free.app` yang ditampilkan notebook ke aplikasi web.
+
+Sesi Kaggle dan URL ngrok bersifat sementara. Parser DeepSeek bergantung pada format dokumen GMP yang dikenali; gunakan `debug_ocr.py` untuk melihat teks OCR mentah apabila hasil ekstraksi perlu diperiksa.
+
+```bash
+python debug_ocr.py <path_pdf> <ngrok_url>
+```
+
+## Struktur Proyek
+
+```text
 gmp_automation/
-├── app.py                    ← Aplikasi utama
-├── config.py                  ← Konfigurasi dan konstanta
-├── ocr_engine.py               ← Mesin OCR (Claude API)
-├── deepseek_ocr/                ← Semua kode terkait DeepSeek-OCR (folder terpisah)
-│   ├── client.py                  ← Client HTTP ke backend DeepSeek-OCR (Kaggle)
-│   ├── parsers.py                 ← Parser markdown/teks OCR → JSON terstruktur
-│   ├── engine.py                  ← Mesin OCR alternatif (dipanggil dari app.py)
-│   └── kaggle_server.ipynb        ← Notebook backend (jalankan di Kaggle)
-├── excel_generator.py          ← Generator file Excel
-├── templates/
-│   └── index.html              ← Tampilan web
-├── uploads/                    ← Temporary (PDF upload)
-├── outputs/                    ← Hasil Excel
-├── requirements.txt            ← Daftar library Python
-├── START_WINDOWS.bat           ← Script start (Windows)
-├── START_LINUX.sh              ← Script start (Linux/Mac)
-└── README.md                   ← File ini
+├── app.py                 # Aplikasi Flask dan endpoint upload/download
+├── config.py              # Konfigurasi batas nilai dan jenis pengujian
+├── ocr_engine.py          # Ekstraksi PDF melalui Claude API
+├── deepseek_ocr/          # Klien, parser, dan notebook backend DeepSeek-OCR
+├── excel_generator.py     # Pembuatan laporan Excel dan grafik
+├── templates/index.html   # Antarmuka web
+├── boilerplate/           # Contoh/template Excel
+├── uploads/               # Penyimpanan PDF sementara saat diproses
+├── outputs/               # Excel hasil proses
+├── debug_ocr.py           # Alat inspeksi hasil OCR DeepSeek
+└── requirements.txt       # Dependensi Python
 ```
 
----
+## Catatan
 
-## 🧠 Opsi Alternatif: OCR Gratis via DeepSeek-OCR (Kaggle)
-
-Selain Claude API (berbayar), sistem ini juga mendukung backend OCR gratis menggunakan
-model [DeepSeek-OCR](https://huggingface.co/deepseek-ai/DeepSeek-OCR) yang dijalankan di Kaggle (GPU gratis).
-
-### Cara pakai:
-1. Buka https://kaggle.com/code, buat notebook baru, lalu **upload/import** file
-   `deepseek_ocr/kaggle_server.ipynb` dari folder ini.
-2. Di notebook: **Settings → Accelerator → GPU T4 x2**, **Settings → Internet → ON**.
-3. Buat akun ngrok gratis (https://dashboard.ngrok.com/get-started/your-authtoken),
-   lalu tambahkan authtoken sebagai **Kaggle Secret** bernama `NGROK_AUTHTOKEN`
-   (menu Add-ons → Secrets di notebook).
-4. Klik **Run All**. Di output cell terakhir akan muncul URL publik seperti
-   `https://xxxx.ngrok-free.app` — biarkan notebook tetap berjalan (jangan di-stop).
-5. Di aplikasi web lokal, pada Langkah 1 pilih **"DeepSeek-OCR (Kaggle)"**, lalu
-   tempel URL ngrok tersebut ke kolom endpoint.
-
-### ⚠️ Catatan penting untuk mode ini:
-- DeepSeek-OCR adalah model OCR mentah (bukan LLM instruksi seperti Claude), jadi ia hanya
-  mengubah gambar dokumen menjadi teks/tabel markdown. Aplikasi ini memakai parser Python
-  (`deepseek_parsers.py`) berbasis pencocokan header tabel untuk mengubah hasil OCR itu
-  menjadi data terstruktur.
-- Parser dibuat berdasarkan struktur tabel yang **diketahui** dari dokumen GMP (lihat prompt
-  di `ocr_engine.py`), tapi **belum dikalibrasi** dengan output nyata DeepSeek-OCR. Jika hasil
-  ekstraksi kurang akurat untuk suatu jenis dokumen, jalankan 1 PDF contoh, lihat teks mentah
-  yang dikembalikan endpoint `/ocr`, lalu sesuaikan logika pencocokan kolom di
-  `deepseek_ocr/parsers.py`.
-- Kaggle session GPU gratis punya batas waktu (± 9 jam / run, kuota mingguan terbatas) dan
-  URL ngrok berubah setiap kali notebook di-restart — pastikan endpoint di aplikasi diperbarui.
-
----
-
-## ⚠️ Catatan Penting
-1. **Kualitas scan PDF** sangat mempengaruhi akurasi. Pastikan scan jelas dan tidak miring.
-2. **Biaya API**: Setiap PDF yang diproses menggunakan Claude API (biaya ~$0.01-0.05 per PDF).
-3. **Internet**: Diperlukan koneksi internet untuk memanggil Claude API.
-4. **1 PDF = 1 AHU × 1 Semester**: Jangan gabungkan data AHU berbeda dalam 1 PDF.
-5. **Chart**: Sistem menggunakan Bar Chart biasa (bukan PivotChart) karena keterbatasan library.
-   Jika ingin mengubah ke PivotChart, buka Excel dan buat secara manual dari sheet Table.
-6. **xlwings (baru)**: Sistem sekarang mendukung rendering chart via Excel engine (`xlwings`) agar tampilan mendekati PivotChart.
-   - Jika Microsoft Excel tidak tersedia / otomatisasi gagal, sistem otomatis fallback ke output `openpyxl` biasa.
-   - Untuk menonaktifkan mode `xlwings`, set environment variable: `GMP_USE_XLWINGS=0`
-
----
-
-## 🔑 Troubleshooting
-| Masalah | Solusi |
-|---------|--------|
-| "Python is not recognized" | Pastikan Python sudah terinstall dan ada di PATH |
-| "poppler not found" | Install Poppler sesuai instruksi di atas |
-| "API Key error" | Pastikan API key benar dan masih aktif |
-| "OCR result incorrect" | Pastikan PDF scan jelas, tidak miring, resolusi cukup |
-| "Module not found" | Jalankan: `pip install -r requirements.txt` |
+- Claude API memerlukan biaya sesuai penggunaan akun Anthropic.
+- Nilai batas dan pengaturan Excel berada di `config.py`.
+- Aplikasi membatasi total unggahan permintaan hingga 100 MB.
+- Berkas unggahan yang berhasil diproses dihapus setelah Excel dibuat.

@@ -37,7 +37,7 @@ echo.
 echo [2/2] Starting GMP Automation System...
 echo.
 echo ============================================================
-echo   Open your browser and go to: http://localhost:5000
+echo   Open your browser and go to: http://localhost:5001
 echo   Press Ctrl+C to stop the server.
 echo ============================================================
 echo.

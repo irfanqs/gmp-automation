@@ -16,7 +16,7 @@ OUTPUT_FOLDER = os.path.join(BASE_DIR, 'outputs')
 # ANTHROPIC API
 # =============================================================================
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
-ANTHROPIC_MODEL = 'claude-sonnet-4-20250514'
+ANTHROPIC_MODEL = 'claude-sonnet-4-5-20250929'
 ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 
 # =============================================================================

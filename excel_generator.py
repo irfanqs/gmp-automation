@@ -11,10 +11,6 @@ from openpyxl.chart import BarChart, LineChart, Reference
 from openpyxl.chart.data_source import MultiLevelStrRef as _MultiLevelStrRef
 from openpyxl.utils import get_column_letter
 
-# openpyxl serialises CT_MultiLvlStrRef with <multiLvlStrCache> before <f>, but
-# the OOXML schema requires <f> first. The wrong order makes Excel flag the file
-# as needing repair (and on macOS it can drop the multi-level X-axis entirely).
-# Reorder the element sequence once, globally, so the generated XML is valid.
 from config import (
     AIRBORNE_PARTICLE, AIR_VELOCITY, AIR_CHANGE_RATE, HEPA_FILTER, AIRFLOW_PATTERN,
     ALERT_FILL_RED, HEADER_FILL, WHITE_FILL,
@@ -116,14 +112,17 @@ def _build_linechart_for_limits(ws, limit_specs, colors, header_row,
     return line
 
 
-def _write_label_column(ws, data_end_row, room_num_col, name_col, label_col):
-    """Write a combined 'room_num  name' label column used as the chart X-axis."""
-    ws.cell(row=1, column=label_col, value='실명')
+def _write_label_column(ws, data_end_row, source_cols, label_col, header='표시명', separator='\n'):
+    """Write a multi-line combined label column used as the chart X-axis."""
+    ws.cell(row=1, column=label_col, value=header)
     for r in range(2, data_end_row + 1):
-        num  = ws.cell(row=r, column=room_num_col).value
-        name = ws.cell(row=r, column=name_col).value
-        label = f"{num}  {name}" if num is not None else str(name or '')
-        ws.cell(row=r, column=label_col, value=label)
+        parts = []
+        for col in source_cols:
+            value = ws.cell(row=r, column=col).value
+            if value is None or value == '':
+                continue
+            parts.append(str(value))
+        ws.cell(row=r, column=label_col, value=separator.join(parts))
 
 
 def _set_str_categories(chart, ws, label_col, data_end_row):
@@ -284,15 +283,17 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     vis_specs  = [(l, v) for (l, v), c in zip(limit_specs, limit_colors) if v <= y_max]
     vis_colors = [c       for (l, v), c in zip(limit_specs, limit_colors) if v <= y_max]
 
-    # ── X-axis labels from name column (Col C for 3-level category tables) ──
-    # Requested behavior: use the values from column C starting at row 2.
-    # For sheets with fewer category columns, use the last category column.
-    label_col = n_cat
-
     limit_start_col = 1 + n_cat + n_sems
 
     # ── Write VISIBLE limit columns only ──────────────────────────────────────
     _write_limit_columns(ws, vis_specs, 1, 2, data_end_row, limit_start_col)
+
+    # ── Multi-line X-axis labels ──────────────────────────────────────────────
+    # Keep a flat category axis for compatibility, but put each hierarchy level
+    # on its own line: grade, room name, then room number.
+    label_col = limit_start_col + len(vis_specs)
+    label_source_cols = [1, 3, 2] if n_cat == 3 else range(1, n_cat + 1)
+    _write_label_column(ws, data_end_row, label_source_cols, label_col)
 
     # ── Column widths ─────────────────────────────────────────────────────────
     for ci in range(n_cat):
@@ -302,6 +303,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
         ws.column_dimensions[get_column_letter(1 + n_cat + si)].width = 14
     for i in range(len(vis_specs)):
         ws.column_dimensions[get_column_letter(limit_start_col + i)].width = 14
+    ws.column_dimensions[get_column_letter(label_col)].width = 28
 
     # Keep the first visible limit/data range readable for users opening the sheet.
     for col in range(5, min(10, limit_start_col + max(len(vis_specs), 1) - 1) + 1):
@@ -326,7 +328,11 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     # bar.y_axis.title = "측정값"
     bar.y_axis.scaling.min = 0
     bar.y_axis.scaling.max = y_max
-    bar.width = 36; bar.height = 18
+    # The category label now has three lines (grade, room name, room number).
+    # Let each category reserve enough horizontal space so Excel does not turn
+    # labels into "B..." / "D..." or rotate them diagonally.
+    bar.width = max(42, min(100, n_items * 3.2))
+    bar.height = 24
     # Legend on the right so it sits in whitespace and never overlaps the plot.
     bar.legend.position = 'r'
     bar.legend.overlay = False
@@ -367,7 +373,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     bar.x_axis.tickLblPos = "nextTo"
 
     # ── Anchor chart to the right of the table ────────────────────────────────
-    chart_col = get_column_letter(limit_start_col + len(vis_specs) + 1)
+    chart_col = get_column_letter(label_col + 1)
     ws.add_chart(bar, f"{chart_col}1")
 
     # ── Note text ─────────────────────────────────────────────────────────────
