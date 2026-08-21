@@ -87,9 +87,9 @@ Setiap PDF sebaiknya memuat satu AHU untuk satu semester. Kualitas hasil bergant
 
 ## Offline OCR dengan Kaggle
 
-Offline OCR adalah alternatif tanpa biaya API Anthropic. Jalankan notebook server OCR yang tersedia di folder `deepseek_ocr/` pada Kaggle dengan GPU dan internet aktif.
+Offline OCR adalah alternatif tanpa biaya API Anthropic. Jalankan notebook server OCR di Kaggle dengan GPU dan internet aktif: [Offline OCR Backend Server](https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server).
 
-1. Buat notebook Kaggle, lalu impor `deepseek_ocr/kaggle_server.ipynb`.
+1. Buka notebook [Offline OCR Backend Server](https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server).
 2. Atur accelerator ke GPU dan aktifkan Internet.
 3. Tambahkan Kaggle Secret bernama `NGROK_AUTHTOKEN`.
 4. Jalankan semua sel notebook.
