@@ -13,6 +13,17 @@
         }
         .container { max-width: 900px; margin: 0 auto; padding: 20px; }
 
+        .mode-nav {
+            display: flex; justify-content: space-between; gap: 12px; margin-bottom: 20px;
+        }
+        .mode-nav a {
+            display: inline-flex; align-items: center; gap: 8px; color: #93c5fd;
+            text-decoration: none; font-weight: 600; padding: 10px 14px;
+            border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 10px;
+            background: rgba(15, 23, 42, 0.35); transition: all 0.2s;
+        }
+        .mode-nav a:hover { color: #fff; border-color: #60a5fa; background: rgba(59, 130, 246, 0.16); }
+
         header {
             text-align: center; padding: 30px 0 20px;
         }
@@ -146,38 +157,35 @@
     <div class="container">
         <header>
             <h1>🏭 GMP Automation System</h1>
-            <p>환경측정 PDF → Excel 자동 변환 시스템</p>
+            <p>{{ 'Online OCR' if ocr_mode == 'online' else 'Offline OCR' }} · 환경측정 PDF → Excel 자동 변환 시스템</p>
         </header>
 
-        <!-- Step 1: OCR Backend -->
-        <div class="card">
-            <h2><span class="step">1</span> OCR 엔진 선택</h2>
-            <div class="test-type-grid" id="backendGrid" style="grid-template-columns: 1fr 1fr; margin-bottom: 16px;">
-                <div class="test-type-btn selected" data-backend="claude" onclick="selectBackend(this)">
-                    <div class="label">☁️ Claude API</div>
-                    <div class="desc">Anthropic API Key 필요, 정확도 높음</div>
-                </div>
-                <div class="test-type-btn" data-backend="deepseek" onclick="selectBackend(this)">
-                    <div class="label">🧠 DeepSeek-OCR (Kaggle)</div>
-                    <div class="desc">Kaggle에서 실행되는 무료 OCR 백엔드</div>
-                </div>
-            </div>
+        <nav class="mode-nav" aria-label="OCR mode navigation">
+            {% if ocr_mode == 'online' %}
+            <span></span>
+            <a href="{{ url_for('offline') }}">Offline OCR <span aria-hidden="true">→</span></a>
+            {% else %}
+            <a href="{{ url_for('online') }}"><span aria-hidden="true">←</span> Online OCR</a>
+            <span></span>
+            {% endif %}
+        </nav>
 
-            <div id="claudeFields">
+        <!-- Step 1: OCR configuration -->
+        <div class="card">
+            <h2><span class="step">1</span> {{ 'Online OCR 설정' if ocr_mode == 'online' else 'Offline OCR 설정' }}</h2>
+            {% if ocr_mode == 'online' %}
                 <div class="info-box">
-                    <strong>ℹ️ API Key란?</strong> PDF에서 데이터를 추출하기 위해 Claude AI를 사용합니다.
+                    <strong>ℹ️ API Key란?</strong> PDF에서 데이터를 추출하기 위해 온라인 AI 서비스를 사용합니다.
                     API Key는 <a href="https://console.anthropic.com/" target="_blank" style="color:#60a5fa;">console.anthropic.com</a>에서 발급받을 수 있습니다.
                 </div>
                 <input type="password" id="apiKey" placeholder="sk-ant-api03-..." autocomplete="off">
-            </div>
-
-            <div id="deepseekFields" style="display:none;">
+            {% else %}
                 <div class="info-box">
-                    <strong>ℹ️ DeepSeek-OCR 엔드포인트란?</strong> Kaggle 노트북(<code>deepseek_ocr/kaggle_server.ipynb</code>)을
-                    실행하면 출력창에 ngrok URL이 나타납니다 (예: <code>https://xxxx.ngrok-free.app</code>). 그 URL을 아래에 붙여넣으세요.
+                    <strong>ℹ️ Offline OCR endpoint란?</strong> OCR server atau notebook lokal akan memberikan URL endpoint
+                    (contoh: <code>https://xxxx.ngrok-free.app</code>). Tempel URL tersebut di bawah.
                 </div>
-                <input type="text" id="deepseekEndpoint" placeholder="https://xxxx.ngrok-free.app" autocomplete="off">
-            </div>
+                <input type="text" id="offlineEndpoint" placeholder="https://xxxx.ngrok-free.app" autocomplete="off">
+            {% endif %}
         </div>
 
         <!-- Step 2: Test Type -->
@@ -237,22 +245,13 @@
 
     <script>
         let selectedType = null;
-        let selectedBackend = 'claude';
+        const ocrMode = '{{ ocr_mode }}';
         let uploadedFiles = [];
 
         function selectType(el) {
             document.querySelectorAll('#testTypeGrid .test-type-btn').forEach(b => b.classList.remove('selected'));
             el.classList.add('selected');
             selectedType = el.dataset.type;
-            updateSubmitBtn();
-        }
-
-        function selectBackend(el) {
-            document.querySelectorAll('#backendGrid .test-type-btn').forEach(b => b.classList.remove('selected'));
-            el.classList.add('selected');
-            selectedBackend = el.dataset.backend;
-            document.getElementById('claudeFields').style.display = selectedBackend === 'claude' ? 'block' : 'none';
-            document.getElementById('deepseekFields').style.display = selectedBackend === 'deepseek' ? 'block' : 'none';
             updateSubmitBtn();
         }
 
@@ -287,14 +286,14 @@
 
         function updateSubmitBtn() {
             const btn = document.getElementById('submitBtn');
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const endpoint = document.getElementById('deepseekEndpoint').value.trim();
-            const backendReady = selectedBackend === 'claude' ? apiKey.length > 10 : endpoint.length > 8;
+            const apiKey = document.getElementById('apiKey')?.value.trim() || '';
+            const endpoint = document.getElementById('offlineEndpoint')?.value.trim() || '';
+            const backendReady = ocrMode === 'online' ? apiKey.length > 10 : endpoint.length > 8;
             btn.disabled = !(selectedType && uploadedFiles.length > 0 && backendReady);
         }
 
-        document.getElementById('apiKey').addEventListener('input', updateSubmitBtn);
-        document.getElementById('deepseekEndpoint').addEventListener('input', updateSubmitBtn);
+        document.getElementById('apiKey')?.addEventListener('input', updateSubmitBtn);
+        document.getElementById('offlineEndpoint')?.addEventListener('input', updateSubmitBtn);
 
         // Drag & drop
         const ua = document.getElementById('uploadArea');
@@ -310,8 +309,8 @@
             const statusMsg = document.getElementById('statusMsg');
             const progressBar = document.getElementById('progressBar');
             const progressFill = document.getElementById('progressFill');
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const deepseekEndpoint = document.getElementById('deepseekEndpoint').value.trim();
+            const apiKey = document.getElementById('apiKey')?.value.trim() || '';
+            const offlineEndpoint = document.getElementById('offlineEndpoint')?.value.trim() || '';
 
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner"></span> 처리 중... (PDF 분석 중, 잠시 기다려주세요)';
@@ -323,9 +322,9 @@
 
             const formData = new FormData();
             formData.append('test_type', selectedType);
-            formData.append('ocr_backend', selectedBackend);
+            formData.append('ocr_mode', ocrMode);
             formData.append('api_key', apiKey);
-            formData.append('deepseek_endpoint', deepseekEndpoint);
+            formData.append('offline_endpoint', offlineEndpoint);
             uploadedFiles.forEach(f => formData.append('pdf_files', f));
 
             try {

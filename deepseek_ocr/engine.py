@@ -1,8 +1,4 @@
-"""
-GMP Automation System - DeepSeek-OCR Engine
-Drop-in alternative to ocr_engine.py: extracts structured data from scanned
-PDFs using a DeepSeek-OCR backend running on Kaggle, instead of Claude API.
-"""
+"""Offline OCR engine for extracting structured data from scanned PDFs."""
 
 from .client import ocr_pdf
 from .parsers import (

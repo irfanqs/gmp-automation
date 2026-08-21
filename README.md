@@ -5,7 +5,7 @@ Aplikasi web lokal untuk mengubah PDF hasil pengukuran lingkungan pabrik farmasi
 ## Fitur
 
 - Memproses banyak PDF sekaligus untuk AHU yang berbeda.
-- Mendukung ekstraksi dengan Claude API atau DeepSeek-OCR melalui backend Kaggle.
+- Mendukung Online OCR melalui API dan Offline OCR melalui endpoint OCR mandiri.
 - Menghasilkan workbook Excel per jenis pengujian dengan sheet data, tabel ringkasan, dan grafik.
 - Menandai nilai di luar batas dengan warna merah.
 - Mengelompokkan hasil berdasarkan AHU dan semester pengukuran.
@@ -25,9 +25,9 @@ Aplikasi web lokal untuk mengubah PDF hasil pengukuran lingkungan pabrik farmasi
 - Python 3.10 atau lebih baru.
 - Poppler, untuk mengubah halaman PDF menjadi gambar.
 - Koneksi internet untuk OCR.
-- Salah satu backend OCR berikut:
-  - Anthropic API key untuk Claude API.
-  - Notebook Kaggle DeepSeek-OCR yang sedang berjalan dan URL ngrok-nya.
+- Salah satu mode OCR berikut:
+  - Online OCR dengan Anthropic API key.
+  - Offline OCR dengan server OCR mandiri dan URL endpoint-nya.
 
 Instal Poppler:
 
@@ -73,21 +73,21 @@ bash START_LINUX.sh
 START_WINDOWS.bat
 ```
 
-Buka `http://localhost:5001` di browser.
+Buka `http://localhost:5001` di browser. Aplikasi akan mengarahkan ke halaman Online OCR di `http://localhost:5001/online`.
 
 ## Cara Menggunakan
 
-1. Pilih backend OCR.
-2. Masukkan Anthropic API key, atau URL endpoint ngrok dari DeepSeek-OCR Kaggle.
+1. Buka `/online` untuk Online OCR atau `/offline` untuk Offline OCR. Gunakan panah navigasi di halaman untuk berpindah mode.
+2. Masukkan Anthropic API key pada Online OCR, atau URL endpoint pada Offline OCR.
 3. Pilih satu jenis pengujian.
 4. Unggah satu atau beberapa PDF dengan jenis pengujian yang sama.
 5. Klik tombol pembuatan Excel dan unduh berkas hasilnya.
 
 Setiap PDF sebaiknya memuat satu AHU untuk satu semester. Kualitas hasil bergantung pada keterbacaan scan PDF.
 
-## DeepSeek-OCR dengan Kaggle
+## Offline OCR dengan Kaggle
 
-DeepSeek-OCR adalah alternatif tanpa biaya API Anthropic. Jalankan `deepseek_ocr/kaggle_server.ipynb` di Kaggle dengan GPU dan internet aktif.
+Offline OCR adalah alternatif tanpa biaya API Anthropic. Jalankan notebook server OCR yang tersedia di folder `deepseek_ocr/` pada Kaggle dengan GPU dan internet aktif.
 
 1. Buat notebook Kaggle, lalu impor `deepseek_ocr/kaggle_server.ipynb`.
 2. Atur accelerator ke GPU dan aktifkan Internet.
@@ -95,7 +95,7 @@ DeepSeek-OCR adalah alternatif tanpa biaya API Anthropic. Jalankan `deepseek_ocr
 4. Jalankan semua sel notebook.
 5. Salin URL `https://*.ngrok-free.app` yang ditampilkan notebook ke aplikasi web.
 
-Sesi Kaggle dan URL ngrok bersifat sementara. Parser DeepSeek bergantung pada format dokumen GMP yang dikenali; gunakan `debug_ocr.py` untuk melihat teks OCR mentah apabila hasil ekstraksi perlu diperiksa.
+Sesi Kaggle dan URL ngrok bersifat sementara. Parser Offline OCR bergantung pada format dokumen GMP yang dikenali; gunakan `debug_ocr.py` untuk melihat teks OCR mentah apabila hasil ekstraksi perlu diperiksa.
 
 ```bash
 python debug_ocr.py <path_pdf> <ngrok_url>
@@ -107,20 +107,20 @@ python debug_ocr.py <path_pdf> <ngrok_url>
 gmp_automation/
 ├── app.py                 # Aplikasi Flask dan endpoint upload/download
 ├── config.py              # Konfigurasi batas nilai dan jenis pengujian
-├── ocr_engine.py          # Ekstraksi PDF melalui Claude API
-├── deepseek_ocr/          # Klien, parser, dan notebook backend DeepSeek-OCR
+├── ocr_engine.py          # Ekstraksi PDF melalui Online OCR
+├── deepseek_ocr/          # Klien, parser, dan notebook backend Offline OCR
 ├── excel_generator.py     # Pembuatan laporan Excel dan grafik
 ├── templates/index.html   # Antarmuka web
 ├── boilerplate/           # Contoh/template Excel
 ├── uploads/               # Penyimpanan PDF sementara saat diproses
 ├── outputs/               # Excel hasil proses
-├── debug_ocr.py           # Alat inspeksi hasil OCR DeepSeek
+├── debug_ocr.py           # Alat inspeksi hasil Offline OCR
 └── requirements.txt       # Dependensi Python
 ```
 
 ## Catatan
 
-- Claude API memerlukan biaya sesuai penggunaan akun Anthropic.
+- Online OCR memerlukan biaya sesuai penggunaan akun Anthropic.
 - Nilai batas dan pengaturan Excel berada di `config.py`.
 - Aplikasi membatasi total unggahan permintaan hingga 100 MB.
 - Berkas unggahan yang berhasil diproses dihapus setelah Excel dibuat.

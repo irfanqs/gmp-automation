@@ -1,10 +1,10 @@
 """
-GMP Automation System - DeepSeek-OCR Output Parsers
-Converts raw text/markdown/HTML produced by the DeepSeek-OCR backend (Kaggle) into
+GMP Automation System - Offline OCR Output Parsers
+Converts raw text/markdown/HTML produced by the Offline OCR backend (Kaggle) into
 the same structured JSON schema that ocr_engine.py (Claude) produces, so
 excel_generator.py does not need to change.
 
-DeepSeek-OCR emits documents as HTML <table> blocks (with rowspan/colspan for
+The Offline OCR backend emits documents as HTML <table> blocks (with rowspan/colspan for
 merged cells) wrapped in <|ref|> markers, e.g.:
 
     <|ref|>table<|/ref|><|det|>[[23, 66, 958, 831]]<|/det|>
@@ -182,7 +182,7 @@ def extract_markdown_tables(text):
 
 
 def extract_tables(text):
-    """All tables (HTML from DeepSeek-OCR, then markdown fallback)."""
+    """All tables (HTML from Offline OCR, then markdown fallback)."""
     return extract_html_tables(text) + extract_markdown_tables(text)
 
 

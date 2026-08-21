@@ -1,8 +1,4 @@
-"""
-GMP Automation System - DeepSeek-OCR Client
-Sends PDF page images to a DeepSeek-OCR backend running on Kaggle (via ngrok)
-and returns raw OCR text/markdown per page.
-"""
+"""GMP Automation System - Offline OCR client."""
 
 import base64
 import requests
@@ -25,9 +21,9 @@ def image_to_base64(pil_image):
 
 
 def call_deepseek_ocr(image_b64, endpoint_url, mode='markdown', resolution='gundam'):
-    """Call the Kaggle DeepSeek-OCR /ocr endpoint for a single image. Returns raw text."""
+    """Call the Offline OCR /ocr endpoint for a single image. Returns raw text."""
     if not endpoint_url:
-        raise ValueError("DeepSeek-OCR endpoint URL is required (Kaggle ngrok URL).")
+        raise ValueError("Offline OCR endpoint URL is required.")
 
     url = endpoint_url.rstrip('/') + '/ocr'
     payload = {'image_b64': image_b64, 'mode': mode, 'resolution': resolution}
@@ -35,10 +31,10 @@ def call_deepseek_ocr(image_b64, endpoint_url, mode='markdown', resolution='gund
     try:
         response = requests.post(url, json=payload, timeout=OCR_TIMEOUT)
     except requests.exceptions.RequestException as e:
-        raise Exception(f"Failed to reach DeepSeek-OCR backend at {endpoint_url}: {e}")
+        raise Exception(f"Failed to reach Offline OCR endpoint at {endpoint_url}: {e}")
 
     if response.status_code != 200:
-        raise Exception(f"DeepSeek-OCR backend error {response.status_code}: {response.text}")
+        raise Exception(f"Offline OCR endpoint error {response.status_code}: {response.text}")
 
     return response.json().get('text', '')
 

@@ -20,7 +20,7 @@ ANTHROPIC_MODEL = 'claude-sonnet-4-5-20250929'
 ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 
 # =============================================================================
-# DEEPSEEK-OCR (KAGGLE BACKEND)
+# OFFLINE OCR BACKEND
 # =============================================================================
 # ngrok URL printed by kaggle/deepseek_ocr_server.ipynb, e.g.
 # "https://xxxx.ngrok-free.app". Can also be entered directly in the web UI.

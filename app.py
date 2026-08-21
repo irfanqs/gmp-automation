@@ -32,8 +32,20 @@ def allowed_file(filename):
 
 @app.route('/')
 def index():
-    """Main page."""
-    return render_template('index.html')
+    """Open the online OCR workflow by default."""
+    return redirect(url_for('online'))
+
+
+@app.route('/online')
+def online():
+    """Online OCR workflow using the hosted API."""
+    return render_template('index.html', ocr_mode='online')
+
+
+@app.route('/offline')
+def offline():
+    """Offline OCR workflow using the configured OCR endpoint."""
+    return render_template('index.html', ocr_mode='offline')
 
 
 @app.route('/process', methods=['POST'])
@@ -41,13 +53,14 @@ def process():
     """Process uploaded PDFs and generate Excel files."""
     try:
         test_type = request.form.get('test_type')
-        ocr_backend = request.form.get('ocr_backend', 'claude').strip()
+        ocr_mode = request.form.get('ocr_mode', 'online').strip()
         api_key = request.form.get('api_key', '').strip()
-        deepseek_endpoint = request.form.get('deepseek_endpoint', '').strip()
+        offline_endpoint = request.form.get('offline_endpoint', '').strip()
 
-        if ocr_backend not in ('claude', 'deepseek'):
-            return jsonify({'error': 'Invalid OCR backend selected.'}), 400
+        if ocr_mode not in ('online', 'offline'):
+            return jsonify({'error': 'Invalid OCR mode selected.'}), 400
 
+        ocr_backend = 'claude' if ocr_mode == 'online' else 'deepseek'
         extractors = CLAUDE_EXTRACTORS if ocr_backend == 'claude' else DEEPSEEK_EXTRACTORS
 
         if not test_type or test_type not in extractors:
@@ -56,8 +69,8 @@ def process():
         if ocr_backend == 'claude' and not api_key:
             return jsonify({'error': 'Anthropic API Key is required.'}), 400
 
-        if ocr_backend == 'deepseek' and not deepseek_endpoint:
-            return jsonify({'error': 'DeepSeek-OCR (Kaggle) endpoint URL is required.'}), 400
+        if ocr_backend == 'deepseek' and not offline_endpoint:
+            return jsonify({'error': 'Offline OCR endpoint URL is required.'}), 400
 
         files = request.files.getlist('pdf_files')
         if not files or all(f.filename == '' for f in files):
@@ -86,7 +99,7 @@ def process():
                 if ocr_backend == 'claude':
                     data = extractor(pdf_path, api_key=api_key)
                 else:
-                    data = extractor(pdf_path, endpoint_url=deepseek_endpoint)
+                    data = extractor(pdf_path, endpoint_url=offline_endpoint)
                 ahu_num = str(data.get('ahu', 'unknown'))
                 date_str = data.get('date', '2025.08.01')
                 semester_label = get_semester_label(date_str)

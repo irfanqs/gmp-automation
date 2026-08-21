@@ -1,6 +1,6 @@
 """
-GMP Automation - debug OCR tool
-Menampilkan teks mentah hasil DeepSeek-OCR untuk satu file PDF.
+GMP Automation - Offline OCR debug tool
+Menampilkan teks mentah hasil Offline OCR untuk satu file PDF.
 
 Usage:
     python debug_ocr.py <path_pdf> <ngrok_url>
