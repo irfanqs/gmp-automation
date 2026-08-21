@@ -1,18 +1,18 @@
 # GMP Automation System
 
-Aplikasi web lokal untuk mengubah PDF hasil pengukuran lingkungan pabrik farmasi menjadi laporan Microsoft Excel yang rapi, lengkap dengan data terstruktur, nilai rata-rata, penanda batas, dan grafik.
+A local web application that converts pharmaceutical-facility environmental measurement PDFs into structured Microsoft Excel reports with averages, limit indicators, and charts.
 
-## Fitur
+## Features
 
-- Memproses banyak PDF sekaligus untuk AHU yang berbeda.
-- Mendukung Online OCR melalui API dan Offline OCR melalui endpoint OCR mandiri.
-- Menghasilkan workbook Excel per jenis pengujian dengan sheet data, tabel ringkasan, dan grafik.
-- Menandai nilai di luar batas dengan warna merah.
-- Mengelompokkan hasil berdasarkan AHU dan semester pengukuran.
+- Processes multiple PDFs for different AHUs in one request.
+- Supports Online OCR through an API and Offline OCR through a self-hosted OCR endpoint.
+- Produces an Excel workbook for each test type with data sheets, summary tables, and charts.
+- Highlights values outside configured limits in red.
+- Groups results by AHU and measurement semester.
 
-## Jenis Pengujian
+## Supported Tests
 
-| Kode | Pengujian | Berkas Excel |
+| Code | Test | Excel File |
 | --- | --- | --- |
 | A | Airborne Particle Test | `Airborne_Particle_Test_Result_and_Graph.xlsx` |
 | B | Air Velocity Test | `Air_Velocity_Test_Result_and_Graph.xlsx` |
@@ -20,16 +20,16 @@ Aplikasi web lokal untuk mengubah PDF hasil pengukuran lingkungan pabrik farmasi
 | D | HEPA Filter Test | `HEPA_Filter_Test_Result_and_Graph.xlsx` |
 | E | Airflow Pattern Test | `Airflow_Pattern_Test_Result_and_Graph.xlsx` |
 
-## Kebutuhan Sistem
+## Requirements
 
-- Python 3.10 atau lebih baru.
-- Poppler, untuk mengubah halaman PDF menjadi gambar.
-- Koneksi internet untuk OCR.
-- Salah satu mode OCR berikut:
-  - Online OCR dengan Anthropic API key.
-  - Offline OCR dengan server OCR mandiri dan URL endpoint-nya.
+- Python 3.10 or later.
+- Poppler, used to convert PDF pages into images.
+- An internet connection for OCR.
+- One of the following OCR modes:
+  - Online OCR with an Anthropic API key.
+  - Offline OCR with a self-hosted OCR server and its endpoint URL.
 
-Instal Poppler:
+Install Poppler:
 
 ```bash
 # macOS
@@ -39,31 +39,31 @@ brew install poppler
 sudo apt install poppler-utils
 ```
 
-Di Windows, unduh Poppler dari [poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases), ekstrak misalnya ke `C:\poppler`, lalu tambahkan `C:\poppler\Library\bin` ke `PATH`.
+On Windows, download [poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases), extract it to a location such as `C:\poppler`, and add `C:\poppler\Library\bin` to `PATH`.
 
-## Instalasi
+## Installation
 
 ```bash
-git clone <URL_REPOSITORI>
+git clone <REPOSITORY_URL>
 cd gmp_automation
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Untuk Windows, aktifkan virtual environment dengan:
+On Windows, activate the virtual environment with:
 
 ```bat
 .venv\Scripts\activate
 ```
 
-## Menjalankan Aplikasi
+## Running the Application
 
 ```bash
 python app.py
 ```
 
-Atau gunakan skrip:
+Or use the startup scripts:
 
 ```bash
 # macOS/Linux
@@ -73,54 +73,54 @@ bash START_LINUX.sh
 START_WINDOWS.bat
 ```
 
-Buka `http://localhost:5001` di browser. Aplikasi akan mengarahkan ke halaman Online OCR di `http://localhost:5001/online`.
+Open `http://localhost:5001` in a browser. The application redirects to the Online OCR page at `http://localhost:5001/online`.
 
-## Cara Menggunakan
+## Usage
 
-1. Buka `/online` untuk Online OCR atau `/offline` untuk Offline OCR. Gunakan panah navigasi di halaman untuk berpindah mode.
-2. Masukkan Anthropic API key pada Online OCR, atau URL endpoint pada Offline OCR.
-3. Pilih satu jenis pengujian.
-4. Unggah satu atau beberapa PDF dengan jenis pengujian yang sama.
-5. Klik tombol pembuatan Excel dan unduh berkas hasilnya.
+1. Open `/online` for Online OCR or `/offline` for Offline OCR. Use the navigation arrows on the page to switch modes.
+2. Enter an Anthropic API key for Online OCR, or an endpoint URL for Offline OCR.
+3. Select one test type.
+4. Upload one or more PDFs of the same test type.
+5. Generate and download the Excel report.
 
-Setiap PDF sebaiknya memuat satu AHU untuk satu semester. Kualitas hasil bergantung pada keterbacaan scan PDF.
+Each PDF should contain one AHU for one semester. Result accuracy depends on the readability of the scanned PDF.
 
-## Offline OCR dengan Kaggle
+## Offline OCR with Kaggle
 
-Offline OCR adalah alternatif tanpa biaya API Anthropic. Jalankan notebook server OCR di Kaggle dengan GPU dan internet aktif: [Offline OCR Backend Server](https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server).
+Offline OCR is a no-API-cost alternative to Online OCR. Run the OCR server notebook in Kaggle with a GPU and internet enabled: [Offline OCR Backend Server](https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server).
 
-1. Buka notebook [Offline OCR Backend Server](https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server).
-2. Atur accelerator ke GPU dan aktifkan Internet.
-3. Tambahkan Kaggle Secret bernama `NGROK_AUTHTOKEN`.
-4. Jalankan semua sel notebook.
-5. Salin URL `https://*.ngrok-free.app` yang ditampilkan notebook ke aplikasi web.
+1. Open the [Offline OCR Backend Server](https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server) notebook.
+2. Set the accelerator to GPU and enable Internet.
+3. Add a Kaggle Secret named `NGROK_AUTHTOKEN`.
+4. Run all notebook cells.
+5. Copy the displayed `https://*.ngrok-free.app` URL into the Offline OCR page.
 
-Sesi Kaggle dan URL ngrok bersifat sementara. Parser Offline OCR bergantung pada format dokumen GMP yang dikenali; gunakan `debug_ocr.py` untuk melihat teks OCR mentah apabila hasil ekstraksi perlu diperiksa.
+Kaggle sessions and ngrok URLs are temporary. The Offline OCR parser depends on the supported GMP document format; use `debug_ocr.py` to inspect raw OCR text when extraction needs to be reviewed.
 
 ```bash
-python debug_ocr.py <path_pdf> <ngrok_url>
+python debug_ocr.py <path_to_pdf> <ngrok_url>
 ```
 
-## Struktur Proyek
+## Project Structure
 
 ```text
 gmp_automation/
-├── app.py                 # Aplikasi Flask dan endpoint upload/download
-├── config.py              # Konfigurasi batas nilai dan jenis pengujian
-├── ocr_engine.py          # Ekstraksi PDF melalui Online OCR
-├── deepseek_ocr/          # Klien, parser, dan notebook backend Offline OCR
-├── excel_generator.py     # Pembuatan laporan Excel dan grafik
-├── templates/index.html   # Antarmuka web
-├── boilerplate/           # Contoh/template Excel
-├── uploads/               # Penyimpanan PDF sementara saat diproses
-├── outputs/               # Excel hasil proses
-├── debug_ocr.py           # Alat inspeksi hasil Offline OCR
-└── requirements.txt       # Dependensi Python
+├── app.py                 # Flask application and upload/download endpoints
+├── config.py              # Limits and test-type configuration
+├── ocr_engine.py          # PDF extraction through Online OCR
+├── deepseek_ocr/          # Offline OCR client, parser, and backend notebook
+├── excel_generator.py     # Excel report and chart generation
+├── templates/index.html   # Web interface
+├── boilerplate/           # Example Excel templates
+├── uploads/               # Temporary PDF storage during processing
+├── outputs/               # Generated Excel reports
+├── debug_ocr.py           # Offline OCR inspection tool
+└── requirements.txt       # Python dependencies
 ```
 
-## Catatan
+## Notes
 
-- Online OCR memerlukan biaya sesuai penggunaan akun Anthropic.
-- Nilai batas dan pengaturan Excel berada di `config.py`.
-- Aplikasi membatasi total unggahan permintaan hingga 100 MB.
-- Berkas unggahan yang berhasil diproses dihapus setelah Excel dibuat.
+- Online OCR incurs charges according to Anthropic account usage.
+- Limits and Excel settings are configured in `config.py`.
+- The application limits each upload request to 100 MB.
+- Uploaded files are removed after a successful Excel report is generated.
