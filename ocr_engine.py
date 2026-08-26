@@ -29,7 +29,7 @@ def call_claude_api(images_b64, prompt, api_key=None):
     """Call Claude API with images and a prompt. Returns parsed JSON."""
     key = api_key or ANTHROPIC_API_KEY
     if not key:
-        raise ValueError("Anthropic API key is required. Set ANTHROPIC_API_KEY environment variable or enter it in the web interface.")
+        raise ValueError("Anthropic API key is required. Set ANTHROPIC_API_KEY in the server environment.")
 
     content = []
     for img_b64 in images_b64:

@@ -54,6 +54,22 @@ On Windows, activate the virtual environment with:
 .venv\Scripts\activate
 ```
 
+## Configure Anthropic API Key
+
+The online OCR service requires an Anthropic API key. Create one in the [Anthropic Console](https://console.anthropic.com/settings/keys), then create the local environment file:
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` in an editor and add the key after the equals sign:
+
+```env
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+```
+
+Keep `.env` private. It is ignored by Git and must not be committed or shared. The application reads this key on the server, so users do not enter it in the web interface.
+
 ## Running the Application
 
 ```bash
@@ -74,11 +90,9 @@ Open `http://localhost:5001/online` in a browser.
 
 ## Docker Deployment
 
-Docker Engine with the Docker Compose plugin is required. Deploy this branch with:
+Docker Engine with the Docker Compose plugin is required. Complete the API-key setup above, then deploy this branch with:
 
 ```bash
-cp .env.example .env
-# Set ANTHROPIC_API_KEY in .env
 bash deploy.sh
 ```
 
