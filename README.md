@@ -72,6 +72,27 @@ START_WINDOWS.bat
 
 Open `http://localhost:5001/online` in a browser.
 
+## Docker Deployment
+
+Docker Engine with the Docker Compose plugin is required. Deploy this branch with:
+
+```bash
+bash deploy.sh
+```
+
+The online application is available at `http://localhost:5001/online`; override the host port when needed:
+
+```bash
+HOST_PORT=8081 bash deploy.sh
+```
+
+Generated files and temporary uploads are stored in Docker volumes. To inspect the deployment or stop it:
+
+```bash
+docker compose -p gmp-online logs -f
+docker compose -p gmp-online down
+```
+
 ## Usage
 
 1. Enter an Anthropic API key.
