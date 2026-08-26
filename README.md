@@ -70,7 +70,7 @@ bash START_LINUX.sh
 START_WINDOWS.bat
 ```
 
-Open `http://localhost:5001/offline` in a browser.
+Open `http://localhost:5002/offline` in a browser.
 
 ## Usage
 

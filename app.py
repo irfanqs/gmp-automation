@@ -7,7 +7,7 @@ import os
 import json
 import uuid
 import traceback
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from werkzeug.utils import secure_filename
 from config import UPLOAD_FOLDER, OUTPUT_FOLDER, get_semester_label, TEST_TYPES
 from deepseek_ocr.engine import EXTRACTORS as DEEPSEEK_EXTRACTORS
@@ -50,6 +50,12 @@ ERROR_MESSAGES = {
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@app.route('/')
+def index():
+    """Redirect the root URL to the offline OCR workflow."""
+    return redirect(url_for('offline'))
 
 
 @app.route('/offline')
@@ -191,6 +197,6 @@ def download(filename):
 if __name__ == '__main__':
     print("=" * 60)
     print("  GMP Automation System")
-    print("  Open your browser and go to: http://localhost:5001/offline")
+    print("  Open your browser and go to: http://localhost:5002/offline")
     print("=" * 60)
-    app.run(host='0.0.0.0', port=5001, debug=False)
+    app.run(host='0.0.0.0', port=5002, debug=False)
