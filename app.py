@@ -7,7 +7,7 @@ import os
 import json
 import uuid
 import traceback
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from werkzeug.utils import secure_filename
 from config import UPLOAD_FOLDER, OUTPUT_FOLDER, get_semester_label, TEST_TYPES
 from ocr_engine import EXTRACTORS as CLAUDE_EXTRACTORS
@@ -50,6 +50,12 @@ ERROR_MESSAGES = {
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@app.route('/')
+def index():
+    """Redirect the root URL to the online OCR workflow."""
+    return redirect(url_for('online'))
 
 
 @app.route('/online')
