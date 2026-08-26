@@ -186,8 +186,8 @@
             {% if ocr_mode == 'online' %}
                 <input type="password" id="apiKey" placeholder="sk-ant-api03-..." autocomplete="off">
             {% else %}
-                <div class="info-box" id="ocrHelp">ℹ️ <strong>Offline OCR 엔드포인트란?</strong> 로컬 OCR 서버 또는 노트북에서 엔드포인트 URL을 제공합니다.
-                    (예: <code>https://xxxx.ngrok-free.app</code>) 아래에 해당 URL을 붙여넣으세요.</div>
+                <div class="info-box" id="ocrHelp">ℹ️ <strong>Offline OCR 엔드포인트란?</strong> <a href="https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;">Kaggle OCR Server</a> 노트북을 실행한 뒤 표시되는 ngrok URL을 아래에 붙여넣으세요.
+                    (예: <code>https://xxxx.ngrok-free.app</code>)</div>
                 <input type="text" id="offlineEndpoint" placeholder="https://xxxx.ngrok-free.app" autocomplete="off">
             {% endif %}
         </div>
@@ -261,7 +261,7 @@
                 processingStatus: '⏳ PDF를 AI가 분석하고 있습니다. PDF 수에 따라 1~5분 소요될 수 있습니다...',
                 error: '❌ 오류:', success: '✅ 성공!', processed: '개의 AHU 데이터가 처리되었습니다.', ahuList: 'AHU 목록:',
                 warning: '⚠️ 경고:', download: '다운로드', networkError: '❌ 네트워크 오류:',
-                offlineHelp: 'ℹ️ <strong>Offline OCR 엔드포인트란?</strong> 로컬 OCR 서버 또는 노트북에서 엔드포인트 URL을 제공합니다. (예: <code>https://xxxx.ngrok-free.app</code>) 아래에 해당 URL을 붙여넣으세요.',
+                offlineHelp: 'ℹ️ <strong>Offline OCR 엔드포인트란?</strong> <a href="https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;">Kaggle OCR Server</a> 노트북을 실행한 뒤 표시되는 ngrok URL을 아래에 붙여넣으세요. (예: <code>https://xxxx.ngrok-free.app</code>)',
                 uploadRules: '📄 <strong>업로드 규칙:</strong> 같은 측정 종류의 PDF만 업로드하세요. 여러 AHU의 PDF를 한 번에 업로드할 수 있습니다. 각 PDF = 1 AHU × 1 학기(semester)'
             },
             en: {
@@ -275,7 +275,7 @@
                 processing: 'Processing... (Analyzing PDFs, please wait)', processingStatus: '⏳ AI is analyzing the PDFs. This may take 1 to 5 minutes depending on the number of files...',
                 error: '❌ Error:', success: '✅ Success!', processed: ' AHU data sets have been processed.', ahuList: 'AHU list:',
                 warning: '⚠️ Warnings:', download: 'Download', networkError: '❌ Network error:',
-                offlineHelp: 'ℹ️ <strong>What is an Offline OCR endpoint?</strong> Your local OCR server or notebook provides an endpoint URL. (Example: <code>https://xxxx.ngrok-free.app</code>) Paste that URL below.',
+                offlineHelp: 'ℹ️ <strong>What is an Offline OCR endpoint?</strong> Run the <a href="https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;">Kaggle OCR Server</a> notebook, then paste the displayed ngrok URL below. (Example: <code>https://xxxx.ngrok-free.app</code>)',
                 uploadRules: '📄 <strong>Upload rules:</strong> Upload only PDFs of the same test type. You can upload PDFs for multiple AHUs at once. Each PDF = 1 AHU × 1 semester.'
             }
         };
