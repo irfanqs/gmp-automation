@@ -61,7 +61,7 @@ def index():
 @app.route('/online')
 def online():
     """Online OCR workflow using the hosted API."""
-    return render_template('index.html', api_key_configured=bool(ANTHROPIC_API_KEY))
+    return render_template('index.html')
 
 
 @app.route('/process', methods=['POST'])
@@ -71,7 +71,7 @@ def process():
         test_type = request.form.get('test_type')
         language = request.form.get('language', 'ko').strip()
         messages = ERROR_MESSAGES.get(language, ERROR_MESSAGES['ko'])
-        api_key = request.form.get('api_key', '').strip() or ANTHROPIC_API_KEY
+        api_key = ANTHROPIC_API_KEY
 
         if not test_type or test_type not in CLAUDE_EXTRACTORS:
             return jsonify({'error': messages['invalid_test']}), 400

@@ -82,7 +82,7 @@ cp .env.example .env
 bash deploy.sh
 ```
 
-The API key stays on the server and is not sent to the browser. The optional API key field in the web interface only overrides the server key for that request.
+The API key stays on the server and is not sent to the browser.
 
 The online application is available at `http://localhost:5001/online`; override the host port when needed:
 
@@ -99,10 +99,9 @@ docker compose -p gmp-online down
 
 ## Usage
 
-1. Enter an Anthropic API key.
-2. Select one test type.
-3. Upload one or more PDFs of the same test type.
-4. Generate and download the Excel report.
+1. Select one test type.
+2. Upload one or more PDFs of the same test type.
+3. Generate and download the Excel report.
 
 Each PDF should contain one AHU for one semester. Result accuracy depends on the readability of the scanned PDF.
 
