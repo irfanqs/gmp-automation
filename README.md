@@ -5,7 +5,7 @@ A local web application that converts pharmaceutical-facility environmental meas
 ## Features
 
 - Processes multiple PDFs for different AHUs in one request.
-- Supports Online OCR through an API and Offline OCR through a self-hosted OCR endpoint.
+- Extracts PDF data through a self-hosted DeepSeek OCR endpoint.
 - Produces an Excel workbook for each test type with data sheets, summary tables, and charts.
 - Highlights values outside configured limits in red.
 - Groups results by AHU and measurement semester.
@@ -24,10 +24,7 @@ A local web application that converts pharmaceutical-facility environmental meas
 
 - Python 3.10 or later.
 - Poppler, used to convert PDF pages into images.
-- An internet connection for OCR.
-- One of the following OCR modes:
-  - Online OCR with an Anthropic API key.
-  - Offline OCR with a self-hosted OCR server and its endpoint URL.
+- A self-hosted OCR server and its endpoint URL.
 
 Install Poppler:
 
@@ -73,21 +70,20 @@ bash START_LINUX.sh
 START_WINDOWS.bat
 ```
 
-Open `http://localhost:5001` in a browser. The application redirects to the Online OCR page at `http://localhost:5001/online`.
+Open `http://localhost:5001` in a browser.
 
 ## Usage
 
-1. Open `/online` for Online OCR or `/offline` for Offline OCR. Use the navigation arrows on the page to switch modes.
-2. Enter an Anthropic API key for Online OCR, or an endpoint URL for Offline OCR.
-3. Select one test type.
-4. Upload one or more PDFs of the same test type.
-5. Generate and download the Excel report.
+1. Enter the self-hosted OCR endpoint URL.
+2. Select one test type.
+3. Upload one or more PDFs of the same test type.
+4. Generate and download the Excel report.
 
 Each PDF should contain one AHU for one semester. Result accuracy depends on the readability of the scanned PDF.
 
 ## Offline OCR with Kaggle
 
-Offline OCR is a no-API-cost alternative to Online OCR. Run the OCR server notebook in Kaggle with a GPU and internet enabled: [Offline OCR Backend Server](https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server).
+Run the OCR server notebook in Kaggle with a GPU and internet enabled: [Offline OCR Backend Server](https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server).
 
 1. Open the [Offline OCR Backend Server](https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server) notebook.
 2. Set the accelerator to GPU and enable Internet.
@@ -107,7 +103,6 @@ python debug_ocr.py <path_to_pdf> <ngrok_url>
 gmp_automation/
 ├── app.py                 # Flask application and upload/download endpoints
 ├── config.py              # Limits and test-type configuration
-├── ocr_engine.py          # PDF extraction through Online OCR
 ├── deepseek_ocr/          # Offline OCR client, parser, and backend notebook
 ├── excel_generator.py     # Excel report and chart generation
 ├── templates/index.html   # Web interface
@@ -120,7 +115,7 @@ gmp_automation/
 
 ## Notes
 
-- Online OCR incurs charges according to Anthropic account usage.
+- Kaggle sessions and ngrok URLs are temporary.
 - Limits and Excel settings are configured in `config.py`.
 - The application limits each upload request to 100 MB.
 - Uploaded files are removed after a successful Excel report is generated.

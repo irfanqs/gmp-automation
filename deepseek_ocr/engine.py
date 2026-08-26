@@ -30,7 +30,7 @@ def extract_airflow_pattern(pdf_path, endpoint_url=None):
     return parse_airflow_pattern(ocr_pdf(pdf_path, endpoint_url))
 
 
-# Map test types to extraction functions (mirrors ocr_engine.EXTRACTORS)
+# Map test types to their extraction functions.
 EXTRACTORS = {
     'airborne_particle': extract_airborne_particle,
     'air_velocity': extract_air_velocity,

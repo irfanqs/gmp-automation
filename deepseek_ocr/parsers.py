@@ -1,7 +1,7 @@
 """
 GMP Automation System - Offline OCR Output Parsers
 Converts raw text/markdown/HTML produced by the Offline OCR backend (Kaggle) into
-the same structured JSON schema that ocr_engine.py (Claude) produces, so
+the structured JSON schema consumed by the Excel generator, so
 excel_generator.py does not need to change.
 
 The Offline OCR backend emits documents as HTML <table> blocks (with rowspan/colspan for
