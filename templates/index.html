@@ -29,6 +29,12 @@
         }
         header h1 { font-size: 2em; color: #60a5fa; margin-bottom: 8px; }
         header p { color: #94a3b8; font-size: 0.95em; }
+        .language-toggle { display: flex; justify-content: center; gap: 4px; margin-top: 14px; }
+        .language-toggle button {
+            padding: 6px 10px; border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 7px;
+            background: rgba(15, 23, 42, 0.35); color: #94a3b8; cursor: pointer; font-size: 0.82em;
+        }
+        .language-toggle button.active { background: #2563eb; border-color: #3b82f6; color: #fff; }
 
         .card {
             background: rgba(30, 41, 59, 0.8); border-radius: 16px;
@@ -157,76 +163,71 @@
     <div class="container">
         <header>
             <h1>🏭 GMP Automation System</h1>
-            <p>{{ 'Online OCR' if ocr_mode == 'online' else 'Offline OCR' }} · 환경측정 PDF → Excel 자동 변환 시스템</p>
+            <p><span id="modeLabel">{{ 'Online OCR' if ocr_mode == 'online' else 'Offline OCR' }}</span> · <span data-i18n="subtitle">환경측정 PDF → Excel 자동 변환 시스템</span></p>
+            <div class="language-toggle" aria-label="Language selection">
+                <button type="button" data-language="ko">한국어</button>
+                <button type="button" data-language="en">English</button>
+            </div>
         </header>
 
         <nav class="mode-nav" aria-label="OCR mode navigation">
             {% if ocr_mode == 'online' %}
             <span></span>
-            <a href="{{ url_for('offline') }}">Offline OCR <span aria-hidden="true">→</span></a>
+            <a href="{{ url_for('offline') }}"><span data-i18n="offlineOcr">Offline OCR</span> <span aria-hidden="true">→</span></a>
             {% else %}
-            <a href="{{ url_for('online') }}"><span aria-hidden="true">←</span> Online OCR</a>
+            <a href="{{ url_for('online') }}"><span aria-hidden="true">←</span> <span data-i18n="onlineOcr">Online OCR</span></a>
             <span></span>
             {% endif %}
         </nav>
 
         <!-- Step 1: OCR configuration -->
         <div class="card">
-            <h2><span class="step">1</span> {{ 'Online OCR 설정' if ocr_mode == 'online' else 'Offline OCR 설정' }}</h2>
+            <h2><span class="step">1</span> <span data-i18n="ocrSettings">{{ 'Online OCR 설정' if ocr_mode == 'online' else 'Offline OCR 설정' }}</span></h2>
             {% if ocr_mode == 'online' %}
-                <div class="info-box">
-                    <strong>ℹ️ API Key란?</strong> PDF에서 데이터를 추출하기 위해 온라인 AI 서비스를 사용합니다.
-                    API Key는 <a href="https://console.anthropic.com/" target="_blank" style="color:#60a5fa;">console.anthropic.com</a>에서 발급받을 수 있습니다.
-                </div>
                 <input type="password" id="apiKey" placeholder="sk-ant-api03-..." autocomplete="off">
             {% else %}
-                <div class="info-box">
-                    <strong>ℹ️ Offline OCR endpoint란?</strong> OCR server atau notebook lokal akan memberikan URL endpoint
-                    (contoh: <code>https://xxxx.ngrok-free.app</code>). Tempel URL tersebut di bawah.
-                </div>
+                <div class="info-box" id="ocrHelp">ℹ️ <strong>Offline OCR 엔드포인트란?</strong> 로컬 OCR 서버 또는 노트북에서 엔드포인트 URL을 제공합니다.
+                    (예: <code>https://xxxx.ngrok-free.app</code>) 아래에 해당 URL을 붙여넣으세요.</div>
                 <input type="text" id="offlineEndpoint" placeholder="https://xxxx.ngrok-free.app" autocomplete="off">
             {% endif %}
         </div>
 
         <!-- Step 2: Test Type -->
         <div class="card">
-            <h2><span class="step">2</span> 측정 종류 선택</h2>
+            <h2><span class="step">2</span> <span data-i18n="testType">측정 종류 선택</span></h2>
             <div class="test-type-grid" id="testTypeGrid">
                 <div class="test-type-btn" data-type="airborne_particle" onclick="selectType(this)">
                     <div class="label">A. Airborne Particle Test</div>
-                    <div class="desc">부유입자 측정 → Excel (4 sheets/AHU)</div>
+                    <div class="desc" data-i18n="particleDesc">부유입자 측정 → Excel (4 sheets/AHU)</div>
                 </div>
                 <div class="test-type-btn" data-type="air_velocity" onclick="selectType(this)">
                     <div class="label">B. Air Velocity Test</div>
-                    <div class="desc">풍속 측정 → Excel (3 sheets/AHU)</div>
+                    <div class="desc" data-i18n="velocityDesc">풍속 측정 → Excel (3 sheets/AHU)</div>
                 </div>
                 <div class="test-type-btn" data-type="air_change_rate" onclick="selectType(this)">
                     <div class="label">C. Air Change Rate Test</div>
-                    <div class="desc">환기횟수 측정 → Excel (3 sheets/AHU)</div>
+                    <div class="desc" data-i18n="changeRateDesc">환기횟수 측정 → Excel (3 sheets/AHU)</div>
                 </div>
                 <div class="test-type-btn" data-type="hepa_filter" onclick="selectType(this)">
                     <div class="label">D. HEPA Filter Test</div>
-                    <div class="desc">HEPA 필터 검사 → Excel (3 sheets/AHU)</div>
+                    <div class="desc" data-i18n="hepaDesc">HEPA 필터 검사 → Excel (3 sheets/AHU)</div>
                 </div>
                 <div class="test-type-btn" data-type="airflow_pattern" onclick="selectType(this)">
                     <div class="label">E. Airflow Pattern Test</div>
-                    <div class="desc">기류패턴 시험 → Excel (1 sheet/AHU)</div>
+                    <div class="desc" data-i18n="airflowDesc">기류패턴 시험 → Excel (1 sheet/AHU)</div>
                 </div>
             </div>
         </div>
 
         <!-- Step 3: Upload PDFs -->
         <div class="card">
-            <h2><span class="step">3</span> PDF 파일 업로드</h2>
-            <div class="info-box">
-                <strong>📄 업로드 규칙:</strong> 같은 측정 종류의 PDF만 업로드하세요.
-                여러 AHU의 PDF를 한 번에 업로드할 수 있습니다.
-                각 PDF = 1 AHU × 1 학기(semester)
-            </div>
+            <h2><span class="step">3</span> <span data-i18n="uploadPdf">PDF 파일 업로드</span></h2>
+            <div class="info-box" id="uploadRules">📄 <strong>업로드 규칙:</strong> 같은 측정 종류의 PDF만 업로드하세요.
+                여러 AHU의 PDF를 한 번에 업로드할 수 있습니다. 각 PDF = 1 AHU × 1 학기(semester)</div>
             <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
                 <div class="icon">📁</div>
-                <div class="text">클릭하거나 파일을 드래그하세요</div>
-                <div class="subtext">PDF 파일만 가능 (여러 파일 동시 업로드 가능)</div>
+                <div class="text" data-i18n="uploadAction">클릭하거나 파일을 드래그하세요</div>
+                <div class="subtext" data-i18n="uploadHint">PDF 파일만 가능 (여러 파일 동시 업로드 가능)</div>
             </div>
             <input type="file" id="fileInput" multiple accept=".pdf" style="display:none" onchange="handleFiles(this.files)">
             <div class="file-list" id="fileList"></div>
@@ -234,9 +235,9 @@
 
         <!-- Step 4: Generate -->
         <div class="card">
-            <h2><span class="step">4</span> Excel 파일 생성</h2>
+            <h2><span class="step">4</span> <span data-i18n="generateExcel">Excel 파일 생성</span></h2>
             <button class="submit-btn" id="submitBtn" onclick="processFiles()" disabled>
-                🚀 Excel 자동 생성 시작
+                <span data-i18n="startGeneration">🚀 Excel 자동 생성 시작</span>
             </button>
             <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
             <div class="status-msg" id="statusMsg"></div>
@@ -247,6 +248,66 @@
         let selectedType = null;
         const ocrMode = '{{ ocr_mode }}';
         let uploadedFiles = [];
+        const translations = {
+            ko: {
+                subtitle: '환경측정 PDF → Excel 자동 변환 시스템', onlineOcr: 'Online OCR', offlineOcr: 'Offline OCR',
+                ocrSettings: ocrMode === 'online' ? 'Online OCR 설정' : 'Offline OCR 설정',
+                testType: '측정 종류 선택', particleDesc: '부유입자 측정 → Excel (4 sheets/AHU)',
+                velocityDesc: '풍속 측정 → Excel (3 sheets/AHU)', changeRateDesc: '환기횟수 측정 → Excel (3 sheets/AHU)',
+                hepaDesc: 'HEPA 필터 검사 → Excel (3 sheets/AHU)', airflowDesc: '기류패턴 시험 → Excel (1 sheet/AHU)',
+                uploadPdf: 'PDF 파일 업로드', uploadAction: '클릭하거나 파일을 드래그하세요',
+                uploadHint: 'PDF 파일만 가능 (여러 파일 동시 업로드 가능)', generateExcel: 'Excel 파일 생성',
+                startGeneration: '🚀 Excel 자동 생성 시작', processing: '처리 중... (PDF 분석 중, 잠시 기다려주세요)',
+                processingStatus: '⏳ PDF를 AI가 분석하고 있습니다. PDF 수에 따라 1~5분 소요될 수 있습니다...',
+                error: '❌ 오류:', success: '✅ 성공!', processed: '개의 AHU 데이터가 처리되었습니다.', ahuList: 'AHU 목록:',
+                warning: '⚠️ 경고:', download: '다운로드', networkError: '❌ 네트워크 오류:',
+                offlineHelp: 'ℹ️ <strong>Offline OCR 엔드포인트란?</strong> 로컬 OCR 서버 또는 노트북에서 엔드포인트 URL을 제공합니다. (예: <code>https://xxxx.ngrok-free.app</code>) 아래에 해당 URL을 붙여넣으세요.',
+                uploadRules: '📄 <strong>업로드 규칙:</strong> 같은 측정 종류의 PDF만 업로드하세요. 여러 AHU의 PDF를 한 번에 업로드할 수 있습니다. 각 PDF = 1 AHU × 1 학기(semester)'
+            },
+            en: {
+                subtitle: 'Environmental measurement PDF to Excel conversion system', onlineOcr: 'Online OCR', offlineOcr: 'Offline OCR',
+                ocrSettings: ocrMode === 'online' ? 'Online OCR Setup' : 'Offline OCR Setup',
+                testType: 'Select Test Type', particleDesc: 'Airborne particle measurement → Excel (4 sheets/AHU)',
+                velocityDesc: 'Air velocity measurement → Excel (3 sheets/AHU)', changeRateDesc: 'Air change rate measurement → Excel (3 sheets/AHU)',
+                hepaDesc: 'HEPA filter test → Excel (3 sheets/AHU)', airflowDesc: 'Airflow pattern test → Excel (1 sheet/AHU)',
+                uploadPdf: 'Upload PDF Files', uploadAction: 'Click or drag files here', uploadHint: 'PDF files only (multiple files supported)',
+                generateExcel: 'Generate Excel File', startGeneration: '🚀 Start Excel Generation',
+                processing: 'Processing... (Analyzing PDFs, please wait)', processingStatus: '⏳ AI is analyzing the PDFs. This may take 1 to 5 minutes depending on the number of files...',
+                error: '❌ Error:', success: '✅ Success!', processed: ' AHU data sets have been processed.', ahuList: 'AHU list:',
+                warning: '⚠️ Warnings:', download: 'Download', networkError: '❌ Network error:',
+                offlineHelp: 'ℹ️ <strong>What is an Offline OCR endpoint?</strong> Your local OCR server or notebook provides an endpoint URL. (Example: <code>https://xxxx.ngrok-free.app</code>) Paste that URL below.',
+                uploadRules: '📄 <strong>Upload rules:</strong> Upload only PDFs of the same test type. You can upload PDFs for multiple AHUs at once. Each PDF = 1 AHU × 1 semester.'
+            }
+        };
+        let language = localStorage.getItem('language') || 'ko';
+
+        function t(key) {
+            return translations[language][key];
+        }
+
+        function applyLanguage() {
+            document.documentElement.lang = language;
+            document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+            document.getElementById('modeLabel').textContent = ocrMode === 'online' ? t('onlineOcr') : t('offlineOcr');
+            const ocrHelp = document.getElementById('ocrHelp');
+            if (ocrHelp) ocrHelp.innerHTML = t('offlineHelp');
+            document.getElementById('uploadRules').innerHTML = t('uploadRules');
+            document.querySelectorAll('[data-language]').forEach(button => {
+                button.classList.toggle('active', button.dataset.language === language);
+            });
+            if (!document.getElementById('submitBtn').disabled) {
+                document.getElementById('submitBtn').textContent = t('startGeneration');
+            }
+        }
+
+        document.querySelectorAll('[data-language]').forEach(button => {
+            button.addEventListener('click', () => {
+                language = button.dataset.language;
+                localStorage.setItem('language', language);
+                applyLanguage();
+            });
+        });
+        applyLanguage();
 
         function selectType(el) {
             document.querySelectorAll('#testTypeGrid .test-type-btn').forEach(b => b.classList.remove('selected'));
@@ -313,10 +374,10 @@
             const offlineEndpoint = document.getElementById('offlineEndpoint')?.value.trim() || '';
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> 처리 중... (PDF 분석 중, 잠시 기다려주세요)';
+            btn.innerHTML = '<span class="spinner"></span> ' + t('processing');
             statusMsg.className = 'status-msg processing';
             statusMsg.style.display = 'block';
-            statusMsg.innerHTML = '⏳ PDF를 AI가 분석하고 있습니다. PDF 수에 따라 1~5분 소요될 수 있습니다...';
+            statusMsg.innerHTML = t('processingStatus');
             progressBar.style.display = 'block';
             progressFill.style.width = '30%';
 
@@ -325,6 +386,7 @@
             formData.append('ocr_mode', ocrMode);
             formData.append('api_key', apiKey);
             formData.append('offline_endpoint', offlineEndpoint);
+            formData.append('language', language);
             uploadedFiles.forEach(f => formData.append('pdf_files', f));
 
             try {
@@ -335,24 +397,24 @@
 
                 if (data.error) {
                     statusMsg.className = 'status-msg error';
-                    statusMsg.innerHTML = '❌ 오류: ' + data.error;
+                    statusMsg.innerHTML = t('error') + ' ' + data.error;
                 } else {
                     statusMsg.className = 'status-msg success';
-                    let msg = `✅ 성공! ${data.ahu_count}개의 AHU 데이터가 처리되었습니다.<br>`;
-                    msg += `AHU 목록: ${data.ahu_list.map(a => 'AHU-' + a).join(', ')}<br>`;
+                    let msg = `${t('success')} ${data.ahu_count}${t('processed')}<br>`;
+                    msg += `${t('ahuList')} ${data.ahu_list.map(a => 'AHU-' + a).join(', ')}<br>`;
                     if (data.warnings && data.warnings.length > 0) {
-                        msg += `<br>⚠️ 경고:<br>${data.warnings.join('<br>')}`;
+                        msg += `<br>${t('warning')}<br>${data.warnings.join('<br>')}`;
                     }
-                    msg += `<br><a href="${data.download_url}" class="download-btn">📥 ${data.filename} 다운로드</a>`;
+                    msg += `<br><a href="${data.download_url}" class="download-btn">📥 ${data.filename} ${t('download')}</a>`;
                     statusMsg.innerHTML = msg;
                 }
             } catch (err) {
                 statusMsg.className = 'status-msg error';
-                statusMsg.innerHTML = '❌ 네트워크 오류: ' + err.message;
+                statusMsg.innerHTML = t('networkError') + ' ' + err.message;
             }
 
             btn.disabled = false;
-            btn.innerHTML = '🚀 Excel 자동 생성 시작';
+            btn.textContent = t('startGeneration');
             updateSubmitBtn();
         }
     </script>

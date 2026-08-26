@@ -25,6 +25,33 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {'pdf'}
 
+ERROR_MESSAGES = {
+    'ko': {
+        'invalid_mode': '잘못된 OCR 모드가 선택되었습니다.',
+        'invalid_test': '잘못된 측정 종류가 선택되었습니다.',
+        'api_key_required': 'Anthropic API Key를 입력하세요.',
+        'endpoint_required': 'Offline OCR 엔드포인트 URL을 입력하세요.',
+        'no_files': '업로드된 PDF 파일이 없습니다.',
+        'no_valid_files': '유효한 PDF 파일을 찾을 수 없습니다.',
+        'extract_failed': '모든 PDF에서 데이터를 추출하지 못했습니다.',
+        'file_not_found': '파일을 찾을 수 없습니다.',
+        'server_error': '서버 오류:',
+        'processing_error': '처리 오류:',
+    },
+    'en': {
+        'invalid_mode': 'Invalid OCR mode selected.',
+        'invalid_test': 'Invalid test type selected.',
+        'api_key_required': 'Anthropic API Key is required.',
+        'endpoint_required': 'Offline OCR endpoint URL is required.',
+        'no_files': 'No PDF files uploaded.',
+        'no_valid_files': 'No valid PDF files found.',
+        'extract_failed': 'Failed to extract data from all PDFs.',
+        'file_not_found': 'File not found.',
+        'server_error': 'Server error:',
+        'processing_error': 'Error processing:',
+    },
+}
+
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -54,27 +81,29 @@ def process():
     try:
         test_type = request.form.get('test_type')
         ocr_mode = request.form.get('ocr_mode', 'online').strip()
+        language = request.form.get('language', 'ko').strip()
+        messages = ERROR_MESSAGES.get(language, ERROR_MESSAGES['ko'])
         api_key = request.form.get('api_key', '').strip()
         offline_endpoint = request.form.get('offline_endpoint', '').strip()
 
         if ocr_mode not in ('online', 'offline'):
-            return jsonify({'error': 'Invalid OCR mode selected.'}), 400
+            return jsonify({'error': messages['invalid_mode']}), 400
 
         ocr_backend = 'claude' if ocr_mode == 'online' else 'deepseek'
         extractors = CLAUDE_EXTRACTORS if ocr_backend == 'claude' else DEEPSEEK_EXTRACTORS
 
         if not test_type or test_type not in extractors:
-            return jsonify({'error': 'Invalid test type selected.'}), 400
+            return jsonify({'error': messages['invalid_test']}), 400
 
         if ocr_backend == 'claude' and not api_key:
-            return jsonify({'error': 'Anthropic API Key is required.'}), 400
+            return jsonify({'error': messages['api_key_required']}), 400
 
         if ocr_backend == 'deepseek' and not offline_endpoint:
-            return jsonify({'error': 'Offline OCR endpoint URL is required.'}), 400
+            return jsonify({'error': messages['endpoint_required']}), 400
 
         files = request.files.getlist('pdf_files')
         if not files or all(f.filename == '' for f in files):
-            return jsonify({'error': 'No PDF files uploaded.'}), 400
+            return jsonify({'error': messages['no_files']}), 400
 
         # Save uploaded files
         saved_paths = []
@@ -87,7 +116,7 @@ def process():
                 saved_paths.append(filepath)
 
         if not saved_paths:
-            return jsonify({'error': 'No valid PDF files found.'}), 400
+            return jsonify({'error': messages['no_valid_files']}), 400
 
         # Extract data from each PDF
         extractor = extractors[test_type]
@@ -138,10 +167,10 @@ def process():
                 all_ahu_data[ahu_num].append(sem_entry)
 
             except Exception as e:
-                errors.append(f"Error processing {os.path.basename(pdf_path)}: {str(e)}")
+                errors.append(f"{messages['processing_error']} {os.path.basename(pdf_path)}: {str(e)}")
 
         if not all_ahu_data:
-            error_msg = "Failed to extract data from all PDFs."
+            error_msg = messages['extract_failed']
             if errors:
                 error_msg += "\n" + "\n".join(errors)
             return jsonify({'error': error_msg}), 400
@@ -176,7 +205,9 @@ def process():
 
     except Exception as e:
         traceback.print_exc()
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
+        language = request.form.get('language', 'ko').strip()
+        messages = ERROR_MESSAGES.get(language, ERROR_MESSAGES['ko'])
+        return jsonify({'error': f"{messages['server_error']} {str(e)}"}), 500
 
 
 @app.route('/download/<filename>')
@@ -185,7 +216,7 @@ def download(filename):
     filepath = os.path.join(OUTPUT_FOLDER, filename)
     if os.path.exists(filepath):
         return send_file(filepath, as_attachment=True, download_name=filename)
-    return jsonify({'error': 'File not found.'}), 404
+    return jsonify({'error': ERROR_MESSAGES['ko']['file_not_found']}), 404
 
 
 if __name__ == '__main__':
