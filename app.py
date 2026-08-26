@@ -52,8 +52,8 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-@app.route('/')
-def index():
+@app.route('/online')
+def online():
     """Online OCR workflow using the hosted API."""
     return render_template('index.html')
 
@@ -191,6 +191,6 @@ def download(filename):
 if __name__ == '__main__':
     print("=" * 60)
     print("  GMP Automation System")
-    print("  Open your browser and go to: http://localhost:5001")
+    print("  Open your browser and go to: http://localhost:5001/online")
     print("=" * 60)
     app.run(host='0.0.0.0', port=5001, debug=False)
