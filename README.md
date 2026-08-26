@@ -24,7 +24,7 @@ A local web application that converts pharmaceutical-facility environmental meas
 
 - Python 3.10 or later.
 - Poppler, used to convert PDF pages into images.
-- Docker Desktop on Windows, including its Linux containers backend.
+- Docker Desktop is optional and only needed for container deployment.
 - At least 16 GB system RAM. The local model runs on CPU for GTX 1050 compatibility and is slow.
 
 Install Poppler:
@@ -59,7 +59,13 @@ On Windows, activate the virtual environment with:
 
 Before setting up local DeepSeek-OCR, run `CHECK_HARDWARE.bat`. It detects display adapters, NVIDIA driver availability, and VRAM without sending hardware data anywhere.
 
-The current OCR model server requires an NVIDIA CUDA GPU. A 16 GB NVIDIA GPU is the tested target; the script reports whether the detected hardware is compatible, may work with reduced settings, or is unsupported.
+The current deployment uses CPU inference so it works without a supported GPU. The script reports NVIDIA driver and VRAM information for future CUDA acceleration; GTX 1050 and integrated GPUs continue to use CPU mode.
+
+## Run Without Docker on Windows
+
+Run `START_WINDOWS.bat`. It creates `.venv`, installs the CPU OCR dependencies, starts the local DeepSeek-OCR model, waits for it to finish loading, then starts the GMP web application at `http://localhost:5002/offline`.
+
+The model starts in a separate `GMP Offline OCR Model` window. Keep that window open while using the application. The first startup downloads the model and can take a long time on CPU; later startups reuse the downloaded model cache.
 
 ## Docker Deployment
 
