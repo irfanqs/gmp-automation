@@ -54,6 +54,12 @@ On Windows, activate the virtual environment with:
 .venv\Scripts\activate
 ```
 
+## Check Windows GPU Compatibility
+
+Before setting up local DeepSeek-OCR, run `CHECK_HARDWARE.bat`. It detects display adapters, NVIDIA driver availability, and VRAM without sending hardware data anywhere.
+
+The current OCR model server requires an NVIDIA CUDA GPU. A 16 GB NVIDIA GPU is the tested target; the script reports whether the detected hardware is compatible, may work with reduced settings, or is unsupported.
+
 ## Running the Application
 
 ```bash
