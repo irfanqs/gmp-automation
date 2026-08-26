@@ -1,4 +1,4 @@
-# GMP Automation System
+# GMP Automation System - Online
 
 A local web application that converts pharmaceutical-facility environmental measurement PDFs into structured Microsoft Excel reports with averages, limit indicators, and charts.
 
