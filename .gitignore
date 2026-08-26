@@ -3,4 +3,5 @@ __pycache__
 .claude/
 .venv/
 .vscode/
+.env
 uploads/

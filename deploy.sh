@@ -14,6 +14,12 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 cd "$(dirname "$0")"
+
+if [[ ! -f .env ]]; then
+    echo "Missing .env. Copy .env.example to .env and set ANTHROPIC_API_KEY." >&2
+    exit 1
+fi
+
 docker compose --project-name "$PROJECT_NAME" up --detach --build --remove-orphans
 docker compose --project-name "$PROJECT_NAME" ps
 

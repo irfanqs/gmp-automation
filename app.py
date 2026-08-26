@@ -9,7 +9,7 @@ import uuid
 import traceback
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from werkzeug.utils import secure_filename
-from config import UPLOAD_FOLDER, OUTPUT_FOLDER, get_semester_label, TEST_TYPES
+from config import ANTHROPIC_API_KEY, UPLOAD_FOLDER, OUTPUT_FOLDER, get_semester_label, TEST_TYPES
 from ocr_engine import EXTRACTORS as CLAUDE_EXTRACTORS
 from excel_generator import GENERATORS
 
@@ -61,7 +61,7 @@ def index():
 @app.route('/online')
 def online():
     """Online OCR workflow using the hosted API."""
-    return render_template('index.html')
+    return render_template('index.html', api_key_configured=bool(ANTHROPIC_API_KEY))
 
 
 @app.route('/process', methods=['POST'])
@@ -71,7 +71,7 @@ def process():
         test_type = request.form.get('test_type')
         language = request.form.get('language', 'ko').strip()
         messages = ERROR_MESSAGES.get(language, ERROR_MESSAGES['ko'])
-        api_key = request.form.get('api_key', '').strip()
+        api_key = request.form.get('api_key', '').strip() or ANTHROPIC_API_KEY
 
         if not test_type or test_type not in CLAUDE_EXTRACTORS:
             return jsonify({'error': messages['invalid_test']}), 400

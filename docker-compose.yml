@@ -5,6 +5,8 @@ services:
     command: ["gunicorn", "--workers", "1", "--bind", "0.0.0.0:5000", "--timeout", "600", "app:app"]
     ports:
       - "${HOST_PORT:-5001}:5000"
+    env_file:
+      - .env
     environment:
       PYTHONUNBUFFERED: "1"
     volumes:

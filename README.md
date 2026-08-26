@@ -77,8 +77,12 @@ Open `http://localhost:5001/online` in a browser.
 Docker Engine with the Docker Compose plugin is required. Deploy this branch with:
 
 ```bash
+cp .env.example .env
+# Set ANTHROPIC_API_KEY in .env
 bash deploy.sh
 ```
+
+The API key stays on the server and is not sent to the browser. The optional API key field in the web interface only overrides the server key for that request.
 
 The online application is available at `http://localhost:5001/online`; override the host port when needed:
 

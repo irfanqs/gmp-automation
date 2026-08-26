@@ -4,6 +4,9 @@ All constants, alert limits, and test parameters
 """
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # =============================================================================
 # DIRECTORIES
