@@ -37,7 +37,7 @@ echo.
 echo [2/2] Starting GMP Automation System with Waitress WSGI...
 echo.
 echo ============================================================
-echo   Open your browser and go to: http://localhost:5001
+echo   Open your browser and go to: http://localhost:5001/offline
 echo   Press Ctrl+C to stop the server.
 echo ============================================================
 echo.

@@ -52,8 +52,8 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-@app.route('/')
-def index():
+@app.route('/offline')
+def offline():
     """Offline OCR workflow using the configured OCR endpoint."""
     return render_template('index.html')
 
@@ -191,6 +191,6 @@ def download(filename):
 if __name__ == '__main__':
     print("=" * 60)
     print("  GMP Automation System")
-    print("  Open your browser and go to: http://localhost:5001")
+    print("  Open your browser and go to: http://localhost:5001/offline")
     print("=" * 60)
     app.run(host='0.0.0.0', port=5001, debug=False)
