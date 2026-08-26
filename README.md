@@ -24,7 +24,8 @@ A local web application that converts pharmaceutical-facility environmental meas
 
 - Python 3.10 or later.
 - Poppler, used to convert PDF pages into images.
-- A self-hosted OCR server and its endpoint URL.
+- Docker Desktop on Windows, including its Linux containers backend.
+- At least 16 GB system RAM. The local model runs on CPU for GTX 1050 compatibility and is slow.
 
 Install Poppler:
 
@@ -60,33 +61,23 @@ Before setting up local DeepSeek-OCR, run `CHECK_HARDWARE.bat`. It detects displ
 
 The current OCR model server requires an NVIDIA CUDA GPU. A 16 GB NVIDIA GPU is the tested target; the script reports whether the detected hardware is compatible, may work with reduced settings, or is unsupported.
 
-## Running the Application
-
-```bash
-python app.py
-```
-
-Or use the startup scripts:
-
-```bash
-# macOS/Linux
-bash START_LINUX.sh
-
-# Windows
-START_WINDOWS.bat
-```
-
-Open `http://localhost:5002/offline` in a browser.
-
 ## Docker Deployment
 
-Docker Engine with the Docker Compose plugin is required. Deploy this branch with:
+Docker Desktop (Windows) or Docker Engine with the Docker Compose plugin is required. Deploy this branch with:
 
 ```bash
 bash deploy.sh
 ```
 
-The offline application is available at `http://localhost:5002/offline`; override the host port when needed:
+The first deployment downloads DeepSeek-OCR from Hugging Face and loads it into CPU memory. This can take a long time and requires an internet connection only for the initial download. Docker stores the model in a persistent volume, so later starts do not download it again.
+
+When the `ocr` service becomes healthy, the offline application is available at `http://localhost:5002/offline`. No URL or API key is entered in the web interface. Follow the initial model download and loading progress with:
+
+```bash
+docker compose -p gmp-offline logs -f ocr
+```
+
+Override the host port when needed:
 
 ```bash
 HOST_PORT=8082 bash deploy.sh
@@ -101,27 +92,21 @@ docker compose -p gmp-offline down
 
 ## Usage
 
-1. Enter the self-hosted OCR endpoint URL.
+1. Wait until the local `ocr` service has finished loading the model.
 2. Select one test type.
 3. Upload one or more PDFs of the same test type.
 4. Generate and download the Excel report.
 
 Each PDF should contain one AHU for one semester. Result accuracy depends on the readability of the scanned PDF.
 
-## Offline OCR with Kaggle
+## Local CPU OCR
 
-Run the OCR server notebook in Kaggle with a GPU and internet enabled: [Offline OCR Backend Server](https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server).
+The current setup intentionally uses CPU inference so it can run without a compatible CUDA GPU. GTX 1050, Intel/AMD integrated graphics, and other unsupported GPUs are not used for inference. CPU OCR is expected to be slow, especially for multi-page PDFs.
 
-1. Open the [Offline OCR Backend Server](https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server) notebook.
-2. Set the accelerator to GPU and enable Internet.
-3. Add a Kaggle Secret named `NGROK_AUTHTOKEN`.
-4. Run all notebook cells.
-5. Copy the displayed `https://*.ngrok-free.app` URL into the Offline OCR page.
-
-Kaggle sessions and ngrok URLs are temporary. The Offline OCR parser depends on the supported GMP document format; use `debug_ocr.py` to inspect raw OCR text when extraction needs to be reviewed.
+The first model download requires internet access. After it is cached in Docker, the OCR service does not use Kaggle, ngrok, or an external OCR API. Use `debug_ocr.py` to inspect raw OCR text when extraction needs to be reviewed:
 
 ```bash
-python debug_ocr.py <path_to_pdf> <ngrok_url>
+python debug_ocr.py <path_to_pdf>
 ```
 
 ## Project Structure
@@ -130,7 +115,7 @@ python debug_ocr.py <path_to_pdf> <ngrok_url>
 gmp_automation/
 ├── app.py                 # Flask application and upload/download endpoints
 ├── config.py              # Limits and test-type configuration
-├── deepseek_ocr/          # Offline OCR client, parser, and backend notebook
+├── deepseek_ocr/          # Local OCR client, parser, and model server
 ├── excel_generator.py     # Excel report and chart generation
 ├── templates/index.html   # Web interface
 ├── boilerplate/           # Example Excel templates
@@ -142,7 +127,7 @@ gmp_automation/
 
 ## Notes
 
-- Kaggle sessions and ngrok URLs are temporary.
+- The first model download can take time and consume significant disk space.
 - Limits and Excel settings are configured in `config.py`.
 - The application limits each upload request to 100 MB.
 - Uploaded files are removed after a successful Excel report is generated.

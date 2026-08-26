@@ -15,9 +15,9 @@ OUTPUT_FOLDER = os.path.join(BASE_DIR, 'outputs')
 # =============================================================================
 # OFFLINE OCR BACKEND
 # =============================================================================
-# ngrok URL printed by kaggle/deepseek_ocr_server.ipynb, e.g.
-# "https://xxxx.ngrok-free.app". Can also be entered directly in the web UI.
-DEEPSEEK_OCR_ENDPOINT = os.environ.get('DEEPSEEK_OCR_ENDPOINT', '')
+# The local DeepSeek-OCR server runs on this port outside Docker. Docker
+# overrides it with the internal `ocr` service address.
+DEEPSEEK_OCR_ENDPOINT = os.environ.get('DEEPSEEK_OCR_ENDPOINT', 'http://127.0.0.1:8000')
 
 # =============================================================================
 # A. AIRBORNE PARTICLE TEST

@@ -159,17 +159,9 @@
             </div>
         </header>
 
-        <!-- Step 1: OCR configuration -->
+        <!-- Step 1: Test Type -->
         <div class="card">
-            <h2><span class="step">1</span> <span data-i18n="ocrSettings">Offline OCR 설정</span></h2>
-            <div class="info-box" id="ocrHelp">ℹ️ <strong>Offline OCR 엔드포인트란?</strong> <a href="https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;">Kaggle OCR Server</a> 노트북을 실행한 뒤 표시되는 ngrok URL을 아래에 붙여넣으세요.
-                (예: <code>https://xxxx.ngrok-free.app</code>)</div>
-            <input type="text" id="offlineEndpoint" placeholder="https://xxxx.ngrok-free.app" autocomplete="off">
-        </div>
-
-        <!-- Step 2: Test Type -->
-        <div class="card">
-            <h2><span class="step">2</span> <span data-i18n="testType">측정 종류 선택</span></h2>
+            <h2><span class="step">1</span> <span data-i18n="testType">측정 종류 선택</span></h2>
             <div class="test-type-grid" id="testTypeGrid">
                 <div class="test-type-btn" data-type="airborne_particle" onclick="selectType(this)">
                     <div class="label">A. Airborne Particle Test</div>
@@ -194,9 +186,9 @@
             </div>
         </div>
 
-        <!-- Step 3: Upload PDFs -->
+        <!-- Step 2: Upload PDFs -->
         <div class="card">
-            <h2><span class="step">3</span> <span data-i18n="uploadPdf">PDF 파일 업로드</span></h2>
+            <h2><span class="step">2</span> <span data-i18n="uploadPdf">PDF 파일 업로드</span></h2>
             <div class="info-box" id="uploadRules">📄 <strong>업로드 규칙:</strong> 같은 측정 종류의 PDF만 업로드하세요.
                 여러 AHU의 PDF를 한 번에 업로드할 수 있습니다. 각 PDF = 1 AHU × 1 학기(semester)</div>
             <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
@@ -208,9 +200,9 @@
             <div class="file-list" id="fileList"></div>
         </div>
 
-        <!-- Step 4: Generate -->
+        <!-- Step 3: Generate -->
         <div class="card">
-            <h2><span class="step">4</span> <span data-i18n="generateExcel">Excel 파일 생성</span></h2>
+            <h2><span class="step">3</span> <span data-i18n="generateExcel">Excel 파일 생성</span></h2>
             <button class="submit-btn" id="submitBtn" onclick="processFiles()" disabled>
                 <span data-i18n="startGeneration">🚀 Excel 자동 생성 시작</span>
             </button>
@@ -224,7 +216,7 @@
         let uploadedFiles = [];
         const translations = {
             ko: {
-                subtitle: '환경측정 PDF → Excel 자동 변환 시스템', ocrSettings: 'Offline OCR 설정',
+                subtitle: '환경측정 PDF → Excel 자동 변환 시스템',
                 testType: '측정 종류 선택', particleDesc: '부유입자 측정 → Excel (4 sheets/AHU)',
                 velocityDesc: '풍속 측정 → Excel (3 sheets/AHU)', changeRateDesc: '환기횟수 측정 → Excel (3 sheets/AHU)',
                 hepaDesc: 'HEPA 필터 검사 → Excel (3 sheets/AHU)', airflowDesc: '기류패턴 시험 → Excel (1 sheet/AHU)',
@@ -234,11 +226,10 @@
                 processingStatus: '⏳ PDF를 AI가 분석하고 있습니다. PDF 수에 따라 1~5분 소요될 수 있습니다...',
                 error: '❌ 오류:', success: '✅ 성공!', processed: '개의 AHU 데이터가 처리되었습니다.', ahuList: 'AHU 목록:',
                 warning: '⚠️ 경고:', download: '다운로드', networkError: '❌ 네트워크 오류:',
-                offlineHelp: 'ℹ️ <strong>Offline OCR 엔드포인트란?</strong> <a href="https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;">Kaggle OCR Server</a> 노트북을 실행한 뒤 표시되는 ngrok URL을 아래에 붙여넣으세요. (예: <code>https://xxxx.ngrok-free.app</code>)',
                 uploadRules: '📄 <strong>업로드 규칙:</strong> 같은 측정 종류의 PDF만 업로드하세요. 여러 AHU의 PDF를 한 번에 업로드할 수 있습니다. 각 PDF = 1 AHU × 1 학기(semester)'
             },
             en: {
-                subtitle: 'Environmental measurement PDF to Excel conversion system', ocrSettings: 'Offline OCR Setup',
+                subtitle: 'Environmental measurement PDF to Excel conversion system',
                 testType: 'Select Test Type', particleDesc: 'Airborne particle measurement → Excel (4 sheets/AHU)',
                 velocityDesc: 'Air velocity measurement → Excel (3 sheets/AHU)', changeRateDesc: 'Air change rate measurement → Excel (3 sheets/AHU)',
                 hepaDesc: 'HEPA filter test → Excel (3 sheets/AHU)', airflowDesc: 'Airflow pattern test → Excel (1 sheet/AHU)',
@@ -247,7 +238,6 @@
                 processing: 'Processing... (Analyzing PDFs, please wait)', processingStatus: '⏳ AI is analyzing the PDFs. This may take 1 to 5 minutes depending on the number of files...',
                 error: '❌ Error:', success: '✅ Success!', processed: ' AHU data sets have been processed.', ahuList: 'AHU list:',
                 warning: '⚠️ Warnings:', download: 'Download', networkError: '❌ Network error:',
-                offlineHelp: 'ℹ️ <strong>What is an Offline OCR endpoint?</strong> Run the <a href="https://www.kaggle.com/code/irfanqs/deepseek-ocr-backend-server" target="_blank" rel="noopener noreferrer" style="color:#60a5fa;">Kaggle OCR Server</a> notebook, then paste the displayed ngrok URL below. (Example: <code>https://xxxx.ngrok-free.app</code>)',
                 uploadRules: '📄 <strong>Upload rules:</strong> Upload only PDFs of the same test type. You can upload PDFs for multiple AHUs at once. Each PDF = 1 AHU × 1 semester.'
             }
         };
@@ -260,8 +250,6 @@
         function applyLanguage() {
             document.documentElement.lang = language;
             document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
-            const ocrHelp = document.getElementById('ocrHelp');
-            if (ocrHelp) ocrHelp.innerHTML = t('offlineHelp');
             document.getElementById('uploadRules').innerHTML = t('uploadRules');
             document.querySelectorAll('[data-language]').forEach(button => {
                 button.classList.toggle('active', button.dataset.language === language);
@@ -318,11 +306,8 @@
 
         function updateSubmitBtn() {
             const btn = document.getElementById('submitBtn');
-            const endpoint = document.getElementById('offlineEndpoint')?.value.trim() || '';
-            btn.disabled = !(selectedType && uploadedFiles.length > 0 && endpoint.length > 8);
+            btn.disabled = !(selectedType && uploadedFiles.length > 0);
         }
-
-        document.getElementById('offlineEndpoint')?.addEventListener('input', updateSubmitBtn);
 
         // Drag & drop
         const ua = document.getElementById('uploadArea');
@@ -338,7 +323,6 @@
             const statusMsg = document.getElementById('statusMsg');
             const progressBar = document.getElementById('progressBar');
             const progressFill = document.getElementById('progressFill');
-            const offlineEndpoint = document.getElementById('offlineEndpoint')?.value.trim() || '';
 
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner"></span> ' + t('processing');
@@ -350,7 +334,6 @@
 
             const formData = new FormData();
             formData.append('test_type', selectedType);
-            formData.append('offline_endpoint', offlineEndpoint);
             formData.append('language', language);
             uploadedFiles.forEach(f => formData.append('pdf_files', f));
 

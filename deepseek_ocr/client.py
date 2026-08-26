@@ -4,6 +4,7 @@ import base64
 import requests
 from io import BytesIO
 from pdf2image import convert_from_path
+from config import DEEPSEEK_OCR_ENDPOINT
 
 OCR_TIMEOUT = 300
 
@@ -20,10 +21,9 @@ def image_to_base64(pil_image):
     return base64.standard_b64encode(buffer.getvalue()).decode('utf-8')
 
 
-def call_deepseek_ocr(image_b64, endpoint_url, mode='markdown', resolution='gundam'):
+def call_deepseek_ocr(image_b64, endpoint_url=None, mode='markdown', resolution='gundam'):
     """Call the Offline OCR /ocr endpoint for a single image. Returns raw text."""
-    if not endpoint_url:
-        raise ValueError("Offline OCR endpoint URL is required.")
+    endpoint_url = endpoint_url or DEEPSEEK_OCR_ENDPOINT
 
     url = endpoint_url.rstrip('/') + '/ocr'
     payload = {'image_b64': image_b64, 'mode': mode, 'resolution': resolution}
@@ -39,7 +39,7 @@ def call_deepseek_ocr(image_b64, endpoint_url, mode='markdown', resolution='gund
     return response.json().get('text', '')
 
 
-def ocr_pdf(pdf_path, endpoint_url, mode='markdown', resolution='gundam', dpi=200):
+def ocr_pdf(pdf_path, endpoint_url=None, mode='markdown', resolution='gundam', dpi=200):
     """Convert a PDF to images and OCR every page. Returns list of raw text, one per page."""
     images = pdf_to_images(pdf_path, dpi=dpi)
     pages_text = []

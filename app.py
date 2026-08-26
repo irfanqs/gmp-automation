@@ -27,7 +27,6 @@ ALLOWED_EXTENSIONS = {'pdf'}
 ERROR_MESSAGES = {
     'ko': {
         'invalid_test': '잘못된 측정 종류가 선택되었습니다.',
-        'endpoint_required': 'Offline OCR 엔드포인트 URL을 입력하세요.',
         'no_files': '업로드된 PDF 파일이 없습니다.',
         'no_valid_files': '유효한 PDF 파일을 찾을 수 없습니다.',
         'extract_failed': '모든 PDF에서 데이터를 추출하지 못했습니다.',
@@ -37,7 +36,6 @@ ERROR_MESSAGES = {
     },
     'en': {
         'invalid_test': 'Invalid test type selected.',
-        'endpoint_required': 'Offline OCR endpoint URL is required.',
         'no_files': 'No PDF files uploaded.',
         'no_valid_files': 'No valid PDF files found.',
         'extract_failed': 'Failed to extract data from all PDFs.',
@@ -71,13 +69,8 @@ def process():
         test_type = request.form.get('test_type')
         language = request.form.get('language', 'ko').strip()
         messages = ERROR_MESSAGES.get(language, ERROR_MESSAGES['ko'])
-        offline_endpoint = request.form.get('offline_endpoint', '').strip()
-
         if not test_type or test_type not in DEEPSEEK_EXTRACTORS:
             return jsonify({'error': messages['invalid_test']}), 400
-
-        if not offline_endpoint:
-            return jsonify({'error': messages['endpoint_required']}), 400
 
         files = request.files.getlist('pdf_files')
         if not files or all(f.filename == '' for f in files):
@@ -103,7 +96,7 @@ def process():
 
         for pdf_path in saved_paths:
             try:
-                data = extractor(pdf_path, endpoint_url=offline_endpoint)
+                data = extractor(pdf_path)
                 ahu_num = str(data.get('ahu', 'unknown'))
                 date_str = data.get('date', '2025.08.01')
                 semester_label = get_semester_label(date_str)
