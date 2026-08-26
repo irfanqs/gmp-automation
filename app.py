@@ -7,11 +7,10 @@ import os
 import json
 import uuid
 import traceback
-from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
+from flask import Flask, render_template, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 from config import UPLOAD_FOLDER, OUTPUT_FOLDER, get_semester_label, TEST_TYPES
 from ocr_engine import EXTRACTORS as CLAUDE_EXTRACTORS
-from deepseek_ocr.engine import EXTRACTORS as DEEPSEEK_EXTRACTORS
 from excel_generator import GENERATORS
 
 app = Flask(__name__)
@@ -27,10 +26,8 @@ ALLOWED_EXTENSIONS = {'pdf'}
 
 ERROR_MESSAGES = {
     'ko': {
-        'invalid_mode': '잘못된 OCR 모드가 선택되었습니다.',
         'invalid_test': '잘못된 측정 종류가 선택되었습니다.',
         'api_key_required': 'Anthropic API Key를 입력하세요.',
-        'endpoint_required': 'Offline OCR 엔드포인트 URL을 입력하세요.',
         'no_files': '업로드된 PDF 파일이 없습니다.',
         'no_valid_files': '유효한 PDF 파일을 찾을 수 없습니다.',
         'extract_failed': '모든 PDF에서 데이터를 추출하지 못했습니다.',
@@ -39,10 +36,8 @@ ERROR_MESSAGES = {
         'processing_error': '처리 오류:',
     },
     'en': {
-        'invalid_mode': 'Invalid OCR mode selected.',
         'invalid_test': 'Invalid test type selected.',
         'api_key_required': 'Anthropic API Key is required.',
-        'endpoint_required': 'Offline OCR endpoint URL is required.',
         'no_files': 'No PDF files uploaded.',
         'no_valid_files': 'No valid PDF files found.',
         'extract_failed': 'Failed to extract data from all PDFs.',
@@ -59,20 +54,8 @@ def allowed_file(filename):
 
 @app.route('/')
 def index():
-    """Open the online OCR workflow by default."""
-    return redirect(url_for('online'))
-
-
-@app.route('/online')
-def online():
     """Online OCR workflow using the hosted API."""
-    return render_template('index.html', ocr_mode='online')
-
-
-@app.route('/offline')
-def offline():
-    """Offline OCR workflow using the configured OCR endpoint."""
-    return render_template('index.html', ocr_mode='offline')
+    return render_template('index.html')
 
 
 @app.route('/process', methods=['POST'])
@@ -80,26 +63,15 @@ def process():
     """Process uploaded PDFs and generate Excel files."""
     try:
         test_type = request.form.get('test_type')
-        ocr_mode = request.form.get('ocr_mode', 'online').strip()
         language = request.form.get('language', 'ko').strip()
         messages = ERROR_MESSAGES.get(language, ERROR_MESSAGES['ko'])
         api_key = request.form.get('api_key', '').strip()
-        offline_endpoint = request.form.get('offline_endpoint', '').strip()
 
-        if ocr_mode not in ('online', 'offline'):
-            return jsonify({'error': messages['invalid_mode']}), 400
-
-        ocr_backend = 'claude' if ocr_mode == 'online' else 'deepseek'
-        extractors = CLAUDE_EXTRACTORS if ocr_backend == 'claude' else DEEPSEEK_EXTRACTORS
-
-        if not test_type or test_type not in extractors:
+        if not test_type or test_type not in CLAUDE_EXTRACTORS:
             return jsonify({'error': messages['invalid_test']}), 400
 
-        if ocr_backend == 'claude' and not api_key:
+        if not api_key:
             return jsonify({'error': messages['api_key_required']}), 400
-
-        if ocr_backend == 'deepseek' and not offline_endpoint:
-            return jsonify({'error': messages['endpoint_required']}), 400
 
         files = request.files.getlist('pdf_files')
         if not files or all(f.filename == '' for f in files):
@@ -119,16 +91,13 @@ def process():
             return jsonify({'error': messages['no_valid_files']}), 400
 
         # Extract data from each PDF
-        extractor = extractors[test_type]
+        extractor = CLAUDE_EXTRACTORS[test_type]
         all_ahu_data = {}
         errors = []
 
         for pdf_path in saved_paths:
             try:
-                if ocr_backend == 'claude':
-                    data = extractor(pdf_path, api_key=api_key)
-                else:
-                    data = extractor(pdf_path, endpoint_url=offline_endpoint)
+                data = extractor(pdf_path, api_key=api_key)
                 ahu_num = str(data.get('ahu', 'unknown'))
                 date_str = data.get('date', '2025.08.01')
                 semester_label = get_semester_label(date_str)
