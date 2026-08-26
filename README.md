@@ -75,6 +75,27 @@ START_WINDOWS.bat
 
 Open `http://localhost:5001` in a browser. The application redirects to the Online OCR page at `http://localhost:5001/online`.
 
+## Docker Deployment
+
+Docker Engine with the Docker Compose plugin is required. Deploy this branch with:
+
+```bash
+bash deploy.sh
+```
+
+The main application is available at `http://localhost:5000/`; override the host port when needed:
+
+```bash
+HOST_PORT=8080 bash deploy.sh
+```
+
+Generated files and temporary uploads are stored in Docker volumes. To inspect the deployment or stop it:
+
+```bash
+docker compose -p gmp-main logs -f
+docker compose -p gmp-main down
+```
+
 ## Usage
 
 1. Open `/online` for Online OCR or `/offline` for Offline OCR. Use the navigation arrows on the page to switch modes.
