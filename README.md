@@ -72,6 +72,27 @@ START_WINDOWS.bat
 
 Open `http://localhost:5002/offline` in a browser.
 
+## Docker Deployment
+
+Docker Engine with the Docker Compose plugin is required. Deploy this branch with:
+
+```bash
+bash deploy.sh
+```
+
+The offline application is available at `http://localhost:5002/offline`; override the host port when needed:
+
+```bash
+HOST_PORT=8082 bash deploy.sh
+```
+
+Generated files and temporary uploads are stored in Docker volumes. To inspect the deployment or stop it:
+
+```bash
+docker compose -p gmp-offline logs -f
+docker compose -p gmp-offline down
+```
+
 ## Usage
 
 1. Enter the self-hosted OCR endpoint URL.
