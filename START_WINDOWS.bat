@@ -1,7 +1,10 @@
 @echo off
 chcp 65001 >nul
+setlocal
+cd /d "%~dp0"
+
 echo ============================================================
-echo   GMP Automation System - Production Start
+echo   GMP Automation System - Online Start
 echo ============================================================
 echo.
 
@@ -14,6 +17,34 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
+
+REM Create the private configuration file from the safe template.
+if not exist ".env" (
+    copy /y ".env.example" ".env" >nul
+    if errorlevel 1 (
+        echo [ERROR] Failed to create the .env configuration file.
+        pause
+        exit /b 1
+    )
+)
+
+REM Ask only when an API key has not already been saved in .env.
+findstr /r /c:"^ANTHROPIC_API_KEY=." ".env" >nul
+if not errorlevel 1 goto api_key_ready
+
+echo.
+echo An Anthropic API key is required for Online OCR.
+echo Create or copy a key from: https://console.anthropic.com/settings/keys
+echo Paste the key when prompted. It will be hidden and saved only in this folder.
+powershell -NoProfile -Command "$envFile = Join-Path (Get-Location) '.env'; $secureKey = Read-Host 'Paste your Anthropic API key' -AsSecureString; $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureKey); try { $key = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }; if ([string]::IsNullOrWhiteSpace($key)) { exit 1 }; [IO.File]::WriteAllText($envFile, ('ANTHROPIC_API_KEY=' + $key + [Environment]::NewLine), (New-Object System.Text.UTF8Encoding($false)))"
+if errorlevel 1 (
+    echo [ERROR] No API key was saved. The application cannot start.
+    pause
+    exit /b 1
+)
+
+:api_key_ready
+echo [OK] Anthropic API key configuration found.
 
 REM Check if poppler is available
 where pdftoppm >nul 2>&1

@@ -86,6 +86,8 @@ bash START_LINUX.sh
 START_WINDOWS.bat
 ```
 
+On the first Windows startup, the script asks for an Anthropic API key and saves it privately in `.env`. You only need to paste the key once; it is not shown in the terminal or stored in Git.
+
 Open `http://localhost:5001/online` in a browser.
 
 ## Docker Deployment
