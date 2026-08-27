@@ -9,6 +9,7 @@ from copy import copy as _copy_obj
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, LineChart, Reference
 from openpyxl.chart.data_source import MultiLevelStrRef as _MultiLevelStrRef
+from openpyxl.chart.layout import Layout, ManualLayout
 from openpyxl.utils import get_column_letter
 
 from config import (
@@ -210,18 +211,10 @@ def _hide_limit_lines_from_legend(chart, n_bar_series, n_limit_series):
         pass
 
 
-_NOTE_TEXT = (
-    "참고: 위 차트에서 특정 등급의 제한선이 표시되지 않는 경우, "
-    "해당 등급의 모든 측정 결과가 아직 기준을 만족하고 있음을 의미합니다. "
-    "해당 등급의 제한선은 제한값이 매우 높아 차트 표시 범위를 초과하므로 "
-    "나타나지 않습니다."
-)
-
-
 def _make_chart_sheet(wb, sheet_name, chart_title,
                        cat_col_specs, data_rows_map, semesters,
                        limit_specs, limit_colors,
-                       y_num_fmt=None, note_text=_NOTE_TEXT):
+                       y_num_fmt=None):
     """
     Generic chart sheet builder.
 
@@ -325,6 +318,10 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     bar.type = 'col'; bar.grouping = 'clustered'
     bar.title = chart_title
     bar.x_axis.title = "측정 위치"
+    # Place the axis title below multi-line category labels to prevent overlap.
+    bar.x_axis.title.layout = Layout(
+        manualLayout=ManualLayout(yMode='edge', y=0.98)
+    )
     # bar.y_axis.title = "측정값"
     bar.y_axis.scaling.min = 0
     bar.y_axis.scaling.max = y_max
@@ -332,7 +329,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     # Let each category reserve enough horizontal space so Excel does not turn
     # labels into "B..." / "D..." or rotate them diagonally.
     bar.width = max(42, min(100, n_items * 3.2))
-    bar.height = 24
+    bar.height = 26
     # Legend on the right so it sits in whitespace and never overlaps the plot.
     bar.legend.position = 'r'
     bar.legend.overlay = False
@@ -375,20 +372,6 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     # ── Anchor chart to the right of the table ────────────────────────────────
     chart_col = get_column_letter(label_col + 1)
     ws.add_chart(bar, f"{chart_col}1")
-
-    # ── Note text ─────────────────────────────────────────────────────────────
-    if note_text:
-        note_row = data_end_row + 2
-        note_cell = ws.cell(row=note_row, column=1, value=note_text)
-        from openpyxl.styles import Alignment
-        note_cell.alignment = Alignment(wrap_text=True, vertical='top')
-        merge_end = max(n_cat + n_sems, 3)
-        try:
-            ws.merge_cells(start_row=note_row, start_column=1,
-                            end_row=note_row + 1, end_column=merge_end)
-        except Exception:
-            pass
-        ws.row_dimensions[note_row].height = 45
 
     return ws
 
@@ -876,7 +859,6 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
         semesters=semesters,
         limit_specs=limit_specs,
         limit_colors=colors,
-        note_text=None,
     )
 
 
@@ -1249,7 +1231,6 @@ def _create_hepa_chart_sheet(wb, ahu_num, table_ws):
         limit_specs=limit_specs,
         limit_colors=colors,
         y_num_fmt='0.0000%',
-        note_text=None,
     )
 
 # =============================================================================
