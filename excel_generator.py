@@ -699,8 +699,8 @@ def generate_air_velocity_excel(all_ahu_data, output_path=None):
         ahu_semesters = all_ahu_data[ahu_num]
         ahu_semesters.sort(key=lambda s: semester_sort_key(s['semester']))
         _create_velocity_data_sheet(wb, ahu_num, ahu_semesters)
-        table_ws = _create_velocity_table_sheet(wb, ahu_num, ahu_semesters)
-        _create_velocity_chart_sheet(wb, ahu_num, table_ws)
+        _create_velocity_table_sheet(wb, ahu_num, ahu_semesters)
+        _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters)
     wb.save(output_path)
     return output_path
 
@@ -829,37 +829,70 @@ def _create_velocity_table_sheet(wb, ahu_num, ahu_semesters):
     return ws
 
 
-def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
-    """Create AHU-X Pivot chart sheet for Air Velocity Test with limit lines."""
-    data_rows = []
-    for r in range(5, table_ws.max_row + 1):
-        grade    = str(table_ws.cell(row=r, column=2).value or '')
-        room_num = table_ws.cell(row=r, column=3).value
-        name     = table_ws.cell(row=r, column=4).value
-        value    = table_ws.cell(row=r, column=5).value
-        semester = table_ws.cell(row=r, column=6).value
-        if name is None:
-            continue
-        data_rows.append({'grade': grade, 'room_num': room_num, 'name': name,
-                           'value': value, 'semester': semester})
-
-    semesters = sorted({d['semester'] for d in data_rows if d['semester']}, key=semester_sort_key)
-    lo = AIR_VELOCITY['alert_limits']['low']
-    hi = AIR_VELOCITY['alert_limits']['high']
-    limit_specs = [(f"Lower Limit: {lo} m/s", lo), (f"Upper Limit: {hi} m/s", hi)]
-    colors = [(_LIMIT_COLORS['lower'], False), (_LIMIT_COLORS['upper'], False)]
-
-
-    return _make_chart_sheet(
-        wb,
-        sheet_name=f"AHU-{ahu_num} Pivot",
-        chart_title=f"AHU-{ahu_num}",
-        cat_col_specs=[('청정등급', 'grade'), ('실번호', 'room_num'), ('실명', 'name')],
-        data_rows_map=data_rows,
-        semesters=semesters,
-        limit_specs=limit_specs,
-        limit_colors=colors,
+def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
+    """Create a chart with one series for each of the four measurement points."""
+    ws = wb.create_sheet(title=f"AHU-{ahu_num} Pivot")
+    max_points = max(
+        (len(machine['measurements'])
+         for semester in ahu_semesters for machine in semester['machines']),
+        default=4,
     )
+    n_points = max(4, max_points)
+    headers = ['청정등급', '실번호', '실명', '측정일자']
+    headers += [f'측정점 {i}' for i in range(1, n_points + 1)]
+    headers += ['Lower Limit', 'Upper Limit', '표시명']
+    for col, header in enumerate(headers, 1):
+        ws.cell(row=1, column=col, value=header)
+
+    rows = [(semester['semester'], machine)
+            for semester in ahu_semesters for machine in semester['machines']]
+    for row_num, (semester, machine) in enumerate(rows, 2):
+        values = [m['value'] for m in machine['measurements']]
+        ws.cell(row=row_num, column=1, value=machine['grade'])
+        ws.cell(row=row_num, column=2, value=machine['room_number'])
+        ws.cell(row=row_num, column=3, value=machine['machine_name'])
+        ws.cell(row=row_num, column=4, value=semester)
+        for point in range(n_points):
+            ws.cell(row=row_num, column=5 + point,
+                    value=values[point] if point < len(values) else None)
+        ws.cell(row=row_num, column=5 + n_points, value=AIR_VELOCITY['alert_limits']['low'])
+        ws.cell(row=row_num, column=6 + n_points, value=AIR_VELOCITY['alert_limits']['high'])
+        ws.cell(row=row_num, column=7 + n_points,
+                value=f"{machine['grade']}\n{machine['room_number']}\n"
+                      f"{machine['machine_name']}\n{semester}")
+
+    data_end_row = max(1, len(rows) + 1)
+    for col in range(1, len(headers) + 1):
+        ws.column_dimensions[get_column_letter(col)].width = 14 if col >= 4 else 22
+
+    chart = BarChart()
+    chart.type = 'col'
+    chart.grouping = 'clustered'
+    chart.title = f"AHU-{ahu_num} Air Velocity"
+    chart.y_axis.scaling.min = 0
+    chart.y_axis.scaling.max = AIR_VELOCITY['chart_y_max']
+    chart.x_axis.title = '측정 위치'
+    chart.legend.position = 'r'
+    chart.width = max(42, min(100, len(rows) * 3.2))
+    chart.height = 26
+    for point in range(n_points):
+        chart.add_data(Reference(ws, min_col=5 + point, min_row=1, max_row=data_end_row),
+                       titles_from_data=True)
+    categories_col = 7 + n_points
+    chart.set_categories(Reference(ws, min_col=categories_col, min_row=2, max_row=data_end_row))
+
+    limit_chart = LineChart()
+    for col, label, color in [
+        (6 + n_points, f"Lower Limit: {AIR_VELOCITY['alert_limits']['low']} m/s", _LIMIT_COLORS['lower']),
+        (7 + n_points, f"Upper Limit: {AIR_VELOCITY['alert_limits']['high']} m/s", _LIMIT_COLORS['upper']),
+    ]:
+        ws.cell(row=1, column=col, value=label)
+        limit_chart.add_data(Reference(ws, min_col=col, min_row=1, max_row=data_end_row),
+                             titles_from_data=True)
+        _style_limit_series(limit_chart.series[-1], color)
+    chart += limit_chart
+    ws.add_chart(chart, f'{get_column_letter(len(headers) + 1)}1')
+    return ws
 
 
 # =============================================================================
