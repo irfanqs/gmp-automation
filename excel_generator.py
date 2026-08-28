@@ -675,6 +675,9 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
             limit_specs.append((f"Grade {g} 조치기준: {action_map[g]:,}", action_map[g]))
             colors.append((_LIMIT_COLORS.get(g, {}).get('action', 'FF3300'), True))
 
+    chart_values = [row['value'] for row in data_rows if row['value'] is not None]
+    chart_values.extend(value for _, value in limit_specs)
+    y_max = _nice_y_max(max(chart_values, default=0) * 1.05)
 
     return _make_chart_sheet(
         wb,
@@ -685,6 +688,7 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
         semesters=semesters,
         limit_specs=limit_specs,
         limit_colors=colors,
+        y_max_override=y_max,
     )
 
 # =============================================================================
