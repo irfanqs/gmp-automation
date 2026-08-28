@@ -664,21 +664,82 @@ def parse_airflow_pattern(pages_text):
     items = []
     for page_text in pages_text:
         readable = html_to_text(page_text)
-        name = extract_field(readable, [r'측정\s*대상[^\S\n]*[:|]?\s*(.+)'])
+        tables = extract_tables(page_text)
+        field_labels = {
+            '측정대상', '측정일자', '결재', '측정자', '확인자',
+            '측정사진', '측정기준', '측정결과', '동영상첨부', '판정결과',
+        }
+
+        def normalized(value):
+            return re.sub(r'[\s:|]+', '', str(value or ''))
+
+        def table_value(label, allowed_values=None):
+            target = normalized(label)
+            for table in tables:
+                for row_index, row in enumerate(table):
+                    for col_index, cell in enumerate(row):
+                        if normalized(cell) != target:
+                            continue
+                        candidates = list(row[col_index + 1:])
+                        candidates.extend(
+                            lower_row[col_index]
+                            for lower_row in table[row_index + 1:]
+                            if col_index < len(lower_row)
+                        )
+                        for candidate in candidates:
+                            candidate_norm = normalized(candidate)
+                            if allowed_values:
+                                for allowed in allowed_values:
+                                    if candidate_norm == normalized(allowed):
+                                        return allowed
+                            elif candidate_norm and candidate_norm not in field_labels:
+                                return str(candidate).strip()
+            return ''
+
+        name = table_value('측정대상')
+        if not name:
+            name = extract_field(
+                readable,
+                [r'측정\s*대상\s*[:|]?\s*(.+?)(?=측정\s*일자|결재|측정자|확인자|측정사진|측정기준|$)'],
+                default='',
+            )
         if not name:
             continue
-        date = extract_field(readable, [r'측정\s*일자[^\S\n]*[:|]?\s*([\d.]+)'], default='')
-        criteria = extract_field(readable, [r'측정\s*기준[^\S\n]*[:|]?\s*([\s\S]+?)(?:동영상|판정결과|$)'], default='')
-        video = extract_field(readable, [r'동영상\s*첨부[^\S\n]*[:|]?\s*(\S+)'], default='')
-        judgment = extract_field(readable, [r'판정\s*결과[^\S\n]*[:|]?\s*(적합|부적합)'], default='')
+
+        date = table_value('측정일자') or extract_field(
+            readable,
+            [r'측정\s*일자\s*[:|]?\s*(\d{4}\s*[.\-/]\s*\d{1,2}\s*[.\-/]\s*\d{1,2})'],
+            default='',
+        )
+        criteria = table_value('측정기준') or extract_field(
+            readable,
+            [r'측정\s*기준\s*[:|]?\s*(.+?)(?=측정\s*결과|동영상\s*첨부|판정\s*결과|$)'],
+            default='',
+        )
+        video = table_value('동영상 첨부', ('미첨부', '첨부'))
+        judgment = table_value('판정결과', ('부적합', '적합'))
+
+        result_start = re.search(r'측정\s*결과', readable)
+        result_text = readable[result_start.start():] if result_start else readable
+        if not video:
+            video = '미첨부' if '미첨부' in result_text else ('첨부' if '첨부' in result_text else '')
+        if not judgment:
+            judgment = '부적합' if '부적합' in result_text else ('적합' if '적합' in result_text else '')
+
+        name = re.split(r'측정\s*일자|결재|측정자|확인자', name, maxsplit=1)[0]
+        name = ' '.join(name.split())
+        date = re.sub(r'\s+', '', date).replace('-', '.').replace('/', '.')
+        criteria = re.sub(r'\s*측정\s*결과.*$', '', criteria).strip()
+        criteria = ' '.join(criteria.split())
+        criteria = re.sub(r'\s*2\.\s*', '\n2. ', criteria)
 
         items.append({
-            'name': name.strip(),
-            'date': date.strip(),
-            'criteria': criteria.strip(),
-            'video_attached': video.strip(),
-            'judgment': judgment.strip(),
+            'name': name,
+            'date': date,
+            'criteria': criteria,
+            'video_attached': video,
+            'judgment': judgment,
         })
 
     ahu = extract_ahu(html_to_text(_join_pages(pages_text)))
-    return {'ahu': ahu, 'items': items}
+    return {'ahu': ahu, 'date': items[0]['date'] if items else '', 'items': items}

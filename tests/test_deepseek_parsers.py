@@ -1,6 +1,6 @@
 import unittest
 
-from deepseek_ocr.parsers import parse_air_change_rate
+from deepseek_ocr.parsers import parse_air_change_rate, parse_airflow_pattern
 
 
 class AirChangeRateParserTest(unittest.TestCase):
@@ -40,6 +40,55 @@ class AirChangeRateParserTest(unittest.TestCase):
             room['air_flow_measurements'],
             [{'point': 1, 'air_flow': 480.2}, {'point': 2, 'air_flow': 500.3}],
         )
+
+
+class AirflowPatternParserTest(unittest.TestCase):
+    def test_extracts_only_field_values_from_each_page(self):
+        names = [
+            '무균시험실 BSC',
+            '균주접종실 BSC',
+            '미생물 시험실 C/B(852)',
+            '미생물 시험실 C/B(853)',
+            'PASS BOX (QHA-745)',
+            'PASS BOX (QHA-744)',
+            'PASS BOX (QHA-743)',
+            'PASS BOX (QHA-742)',
+        ]
+        criteria = (
+            '1. 육안상 단일방향류가 형성되어야 함.\n'
+            '2. 측정대상 크린장비 내부에 난류가 형성되는 구역이 없어야 함.'
+        )
+        pages = []
+        for name in names:
+            pages.append(f"""
+            <table>
+              <tr>
+                <td>측정대상</td><td>{name}</td><td>측정일자</td><td>2025.08.02</td>
+                <td>결재</td><td>측정자</td><td>확인자</td>
+              </tr>
+            </table>
+            <table><tr><td>측정사진</td><td>image</td></tr></table>
+            <table>
+              <tr><td>측정기준</td><td>1. 육안상 단일방향류가 형성되어야 함.<br>
+              2. 측정대상 크린장비 내부에 난류가 형성되는 구역이 없어야 함.</td></tr>
+            </table>
+            <table>
+              <tr><td rowspan="2">측정결과</td><td>동영상 첨부</td><td>판정결과</td></tr>
+              <tr><td>첨부</td><td>적합</td></tr>
+            </table>
+            """)
+
+        result = parse_airflow_pattern(pages)
+
+        self.assertEqual(result['ahu'], 'unknown')
+        self.assertEqual(result['date'], '2025.08.02')
+        self.assertEqual(len(result['items']), 8)
+        self.assertEqual([item['name'] for item in result['items']], names)
+        for item in result['items']:
+            self.assertEqual(item['date'], '2025.08.02')
+            self.assertEqual(item['criteria'], criteria)
+            self.assertEqual(item['video_attached'], '첨부')
+            self.assertEqual(item['judgment'], '적합')
 
 
 if __name__ == '__main__':
