@@ -367,7 +367,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     bar.x_axis.tickLblPos = "nextTo"
 
     # ── Anchor chart to the right of the table ────────────────────────────────
-    chart_col = get_column_letter(label_col + 1)
+    chart_col = get_column_letter(label_col + 3)
     ws.add_chart(bar, f"{chart_col}1")
 
     return ws
@@ -907,7 +907,7 @@ def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
     chart += limit_chart
     chart.x_axis.axPos = 'b'
     chart.x_axis.tickLblPos = 'nextTo'
-    ws.add_chart(chart, f'{get_column_letter(len(headers) + 1)}1')
+    ws.add_chart(chart, f'{get_column_letter(len(headers) + 3)}1')
     return ws
 
 
