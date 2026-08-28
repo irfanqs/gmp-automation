@@ -255,10 +255,12 @@ Each page is a separate test for one equipment/room. Extract ALL data from ALL p
 IMPORTANT RULES:
 - Each page represents one equipment/room test
 - "name" is from 측정대상 field (the equipment/room name)
+- "name" must contain ONLY the measurement target; exclude 측정일자, 결재, 측정자, and 확인자 metadata
 - "date" is from 측정일자 field
 - "criteria" is from 측정기준 section
 - "video_attached" is from 동영상 첨부 section
 - "judgment" is from 판정결과 section (적합 or 부적합)
+- Do not return field labels such as 측정결과 or 판정결과 as field values
 - Extract data from ALL pages
 - Return ONLY the JSON, no markdown, no explanation"""
 
