@@ -859,14 +859,22 @@ def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
         ws.column_dimensions[get_column_letter(col)].width = 14 if col >= 4 else 22
 
     chart = BarChart()
+    try:
+        chart.y_axis.majorGridlines = None
+    except Exception:
+        pass
     chart.type = 'col'
     chart.grouping = 'clustered'
     chart.title = f"AHU-{ahu_num}"
+    chart.x_axis.delete = False
+    chart.y_axis.delete = False
     chart.y_axis.scaling.min = 0
     chart.y_axis.scaling.max = AIR_VELOCITY['chart_y_max']
     chart.legend.position = 'r'
+    chart.legend.overlay = False
     chart.width = max(19, min(38, len(rows) * 1.5))
     chart.height = 8
+    chart.x_axis.tickLblSkip = 1
     for point in range(n_points):
         chart.add_data(Reference(ws, min_col=5 + point, min_row=1, max_row=data_end_row),
                        titles_from_data=True)
@@ -875,14 +883,16 @@ def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
 
     limit_chart = LineChart()
     for col, label, color in [
-        (6 + n_points, f"Lower Limit: {AIR_VELOCITY['alert_limits']['low']} m/s", _LIMIT_COLORS['lower']),
-        (7 + n_points, f"Upper Limit: {AIR_VELOCITY['alert_limits']['high']} m/s", _LIMIT_COLORS['upper']),
+        (5 + n_points, f"Lower Limit: {AIR_VELOCITY['alert_limits']['low']} m/s", _LIMIT_COLORS['lower']),
+        (6 + n_points, f"Upper Limit: {AIR_VELOCITY['alert_limits']['high']} m/s", _LIMIT_COLORS['upper']),
     ]:
         ws.cell(row=1, column=col, value=label)
         limit_chart.add_data(Reference(ws, min_col=col, min_row=1, max_row=data_end_row),
                              titles_from_data=True)
         _style_limit_series(limit_chart.series[-1], color)
     chart += limit_chart
+    chart.x_axis.axPos = 'b'
+    chart.x_axis.tickLblPos = 'nextTo'
     ws.add_chart(chart, f'{get_column_letter(len(headers) + 1)}1')
     return ws
 
