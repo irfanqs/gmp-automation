@@ -4,7 +4,9 @@ from deepseek_ocr.parsers import (
     extract_ahu,
     parse_airborne_particle,
     parse_air_change_rate,
+    parse_air_velocity,
     parse_airflow_pattern,
+    parse_hepa_filter,
 )
 
 
@@ -76,6 +78,54 @@ class AirborneParticleParserTest(unittest.TestCase):
                 {'point': 2, 'value_05': 17690, 'value_50': 550},
             ],
         )
+
+
+class AhuMetadataParserTest(unittest.TestCase):
+    def test_reads_horizontal_and_vertical_ahu_metadata(self):
+        horizontal = '<table><tr><td>해당 공조기</td><td>공조기-33</td></tr></table>'
+        vertical = """
+        <table>
+          <tr><td>측정기준</td><td>해당<br>공조기</td><td>측정일자</td><td>측정결과</td></tr>
+          <tr><td>0.01%↓</td><td>공조기-33</td><td>2025.08.03</td><td>적합</td></tr>
+        </table>
+        """
+        self.assertEqual(extract_ahu(horizontal), '33')
+        self.assertEqual(extract_ahu(vertical), '33')
+
+    def test_does_not_use_measurement_number_when_ahu_is_blank(self):
+        page = """
+        <table>
+          <tr><td>해당 공조기</td><td>측정일자</td></tr>
+          <tr><td></td><td>2025.08.03</td></tr>
+        </table>
+        <table><tr><td>NO</td><td>측정번호</td></tr><tr><td>1</td><td>1</td></tr></table>
+        """
+        self.assertEqual(extract_ahu(page), 'unknown')
+
+    def test_air_velocity_reads_horizontal_ahu_metadata(self):
+        page = """
+        <table><tr><td>해당 공조기</td><td>공조기-34</td></tr></table>
+        <table>
+          <tr><th>NO</th><th>청정등급</th><th>실번호</th><th>실명</th><th>측정번호</th><th>측정값</th></tr>
+          <tr><td>1</td><td>A</td><td>2142</td><td>무균시험실 BSC</td><td>1</td><td>0.45</td></tr>
+        </table>
+        """
+        self.assertEqual(parse_air_velocity([page])['ahu'], '34')
+
+    def test_hepa_reads_ahu_value_below_header(self):
+        page = """
+        <table>
+          <tr><td>측정기준</td><td>해당<br>공조기</td><td>측정일자</td><td>측정결과</td></tr>
+          <tr><td>0.01%↓</td><td>공조기-33</td><td>2025.08.03</td><td>적합</td></tr>
+        </table>
+        <table>
+          <tr><th>NO</th><th>실번호</th><th>실명</th><th>측정번호</th><th>측정값</th></tr>
+          <tr><td>1</td><td>2142</td><td>무균시험실 BSC</td><td>1</td><td>0.003%</td></tr>
+        </table>
+        """
+        result = parse_hepa_filter([page])
+        self.assertEqual(result['ahu'], '33')
+        self.assertEqual(len(result['items']), 1)
 
 
 class AirChangeRateParserTest(unittest.TestCase):

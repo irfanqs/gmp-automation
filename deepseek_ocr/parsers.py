@@ -236,12 +236,18 @@ def extract_ahu(text):
 
     if '<table' in text.lower():
         for table in extract_tables(text):
-            for row in table:
+            for row_index, row in enumerate(table):
                 for index, cell in enumerate(row):
                     label = re.sub(r'[\s:|]+', '', str(cell))
                     if not (label.startswith('해당공조기') or label == 'AHU'):
                         continue
-                    for candidate in row[index + 1:index + 3]:
+                    candidates = list(row[index + 1:index + 3])
+                    candidates.extend(
+                        lower_row[index]
+                        for lower_row in table[row_index + 1:]
+                        if index < len(lower_row)
+                    )
+                    for candidate in candidates:
                         number = candidate_number(candidate, allow_plain_number=True)
                         if number:
                             return number
@@ -252,7 +258,7 @@ def extract_ahu(text):
         compact,
         [
             r'해당공조기(?:공조기|AHU)[_:\-–]*([1-9]\d{0,2})(?!\d)',
-            r'(?:공조기|AHU)[_:\-–]*([1-9]\d{0,2})(?!\d)',
+            r'(?:공조기|AHU)[_:\-–]+([1-9]\d{0,2})(?!\d)',
         ],
         default='unknown',
     )
@@ -510,7 +516,7 @@ def parse_air_velocity(pages_text):
             i = j + 1
 
     return {
-        'ahu': extract_ahu(readable),
+        'ahu': extract_ahu(text),
         'date': extract_date(readable),
         'result': extract_result(readable),
         'machines': machines,
@@ -608,7 +614,7 @@ def parse_air_change_rate(pages_text):
                 rooms.append(room)
 
     return {
-        'ahu': extract_ahu(readable),
+        'ahu': extract_ahu(text),
         'date': extract_date(readable),
         'result': extract_result(readable),
         'rooms': rooms,
@@ -687,7 +693,7 @@ def parse_hepa_filter(pages_text):
             i = j + 1
 
     return {
-        'ahu': extract_ahu(readable),
+        'ahu': extract_ahu(text),
         'date': extract_date(readable),
         'result': extract_result(readable),
         'standard': extract_standard(readable),
@@ -780,5 +786,5 @@ def parse_airflow_pattern(pages_text):
             'judgment': judgment,
         })
 
-    ahu = extract_ahu(html_to_text(_join_pages(pages_text)))
+    ahu = extract_ahu(_join_pages(pages_text))
     return {'ahu': ahu, 'date': items[0]['date'] if items else '', 'items': items}
