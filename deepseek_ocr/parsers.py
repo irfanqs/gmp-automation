@@ -316,33 +316,52 @@ def parse_airborne_particle(pages_text):
     readable = html_to_text(text)
     rooms = []
     no_counter = 1
+    entries = []
+    last_header = None
+    previous_identity = None
 
     for table in extract_tables(text):
-        if len(table) < 2:
+        if not table:
             continue
-        header, rows = table[0], table[1:]
+        candidate_header = table[0]
 
-        room_no_i = _find_col(header, _ID_COLS_KEYWORDS['room_no'])
-        room_name_i = _find_col(header, _ID_COLS_KEYWORDS['room_name'])
-        grade_i = _find_col(header, _ID_COLS_KEYWORDS['grade'])
+        room_no_i = _find_col(candidate_header, _ID_COLS_KEYWORDS['room_no'])
+        room_name_i = _find_col(candidate_header, _ID_COLS_KEYWORDS['room_name'])
+        grade_i = _find_col(candidate_header, _ID_COLS_KEYWORDS['grade'])
         if room_no_i is None and room_name_i is None:
-            continue  # not the measurement table
+            if last_header is None:
+                continue
+            header = last_header
+            no_i = _find_col(header, _ID_COLS_KEYWORDS['no'])
+            if no_i is None or not any(
+                    no_i < len(row) and _to_number(row[no_i], as_int=True) is not None
+                    for row in table):
+                continue
+            rows = table
+            room_no_i = _find_col(header, _ID_COLS_KEYWORDS['room_no'])
+            room_name_i = _find_col(header, _ID_COLS_KEYWORDS['room_name'])
+            grade_i = _find_col(header, _ID_COLS_KEYWORDS['grade'])
+        else:
+            header, rows = candidate_header, table[1:]
+            last_header = header
 
         used = _used_cols(header, 'grade', 'room_no', 'room_name', 'no', 'point')
         measure_cols = [i for i in range(len(header)) if i not in used]
         # measurement columns come in pairs: 0.5um, 5.0um per point
         pairs = [measure_cols[i:i + 2] for i in range(0, len(measure_cols) - 1, 2)]
 
-        entries = []
         for row in rows:
             row = _align_row(row, len(header))
             if len(row) < len(header):
-                continue
+                row += [''] * (len(header) - len(row))
             room_number = row[room_no_i] if room_no_i is not None else ''
             room_name = row[room_name_i] if room_name_i is not None else ''
             grade = row[grade_i] if grade_i is not None else ''
+            if not room_number and not room_name and previous_identity:
+                grade, room_number, room_name = previous_identity
             if not room_number and not room_name:
                 continue
+            previous_identity = (grade, room_number, room_name)
 
             measurements = []
             for (c05, c50) in pairs:
@@ -361,30 +380,30 @@ def parse_airborne_particle(pages_text):
                 'measurements': measurements,
             })
 
-        # group consecutive entries for the same room into one room object
-        i = 0
-        while i < len(entries):
-            e = entries[i]
-            j = i
-            while j + 1 < len(entries) and \
-                    entries[j + 1]['room_number'] == e['room_number'] and \
-                    entries[j + 1]['room_name'] == e['room_name'] and \
-                    entries[j + 1]['grade'] == e['grade']:
-                j += 1
-            group = []
-            for en in entries[i:j + 1]:
-                for m in en['measurements']:
-                    group.append(dict(m, point=len(group) + 1))
-            rooms.append({
-                'no_start': no_counter,
-                'no_end': no_counter + len(group) - 1,
-                'grade': e['grade'],
-                'room_number': e['room_number'],
-                'room_name': e['room_name'],
-                'measurements': group,
-            })
-            no_counter += len(group)
-            i = j + 1
+    # Group after all pages are parsed so a room can continue across a page break.
+    i = 0
+    while i < len(entries):
+        e = entries[i]
+        j = i
+        while j + 1 < len(entries) and \
+                entries[j + 1]['room_number'] == e['room_number'] and \
+                entries[j + 1]['room_name'] == e['room_name'] and \
+                entries[j + 1]['grade'] == e['grade']:
+            j += 1
+        group = []
+        for en in entries[i:j + 1]:
+            for m in en['measurements']:
+                group.append(dict(m, point=len(group) + 1))
+        rooms.append({
+            'no_start': no_counter,
+            'no_end': no_counter + len(group) - 1,
+            'grade': e['grade'],
+            'room_number': e['room_number'],
+            'room_name': e['room_name'],
+            'measurements': group,
+        })
+        no_counter += len(group)
+        i = j + 1
 
     return {
         'ahu': extract_ahu(readable),

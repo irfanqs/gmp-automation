@@ -1,6 +1,73 @@
 import unittest
 
-from deepseek_ocr.parsers import parse_air_change_rate, parse_airflow_pattern
+from deepseek_ocr.parsers import (
+    parse_airborne_particle,
+    parse_air_change_rate,
+    parse_airflow_pattern,
+)
+
+
+AIRBORNE_ROOMS = [
+    ('B', '2142', '무균 실험실', [(121, 7), (194, 0), (676, 9), (576, 9), (107, 1), (121, 4)]),
+    ('D', '2165', '균주접종실', [(5420, 400), (570, 20), (660, 50), (4000, 620), (690, 110), (600, 10)]),
+    ('C', '2147', '탈의실', [(30760, 1340), (17690, 550)]),
+    ('D', '2169', '복도', [(11140, 1670), (4120, 650), (4710, 590)]),
+    ('D', '2145', '탈의실', [(54260, 1170)]),
+    ('B', '2142', 'PASS BOX(QHA-745)', [(539, 4), (317, 0)]),
+    ('B', '2142', 'PASS BOX(QHA-744)', [(90, 1), (114, 1)]),
+    ('D', '2169', 'PASS BOX(QHA-743)', [(25830, 2240), (30810, 2960)]),
+    ('D', '2169', 'PASS BOX(QHA-742)', [(60, 0), (70, 0)]),
+    ('A', '2142', '무균시험실 BSC', [(3, 0), (1, 0)]),
+    ('B', '2165', '균주접종실 BSC', [(4, 0), (0, 0)]),
+]
+
+
+def airborne_page(rows, include_header=False):
+    header = ''
+    if include_header:
+        header = (
+            '<tr><th>NO</th><th>청정 등급</th><th>실번호</th><th>실명</th>'
+            '<th>측정번호</th><th>0.5 μm</th><th>5.0 μm</th></tr>'
+        )
+    body = ''.join(
+        f'<tr><td>{no}</td><td>{grade}</td><td>{room_number}</td><td>{name}</td>'
+        f'<td>{point}</td><td>{value_05}</td><td>{value_50}</td></tr>'
+        for no, grade, room_number, name, point, value_05, value_50 in rows
+    )
+    return f'<table>{header}{body}</table>'
+
+
+class AirborneParticleParserTest(unittest.TestCase):
+    def test_reuses_header_for_continuation_pages_and_keeps_all_30_points(self):
+        rows = []
+        no = 1
+        for grade, room_number, name, measurements in AIRBORNE_ROOMS:
+            for point, (value_05, value_50) in enumerate(measurements, start=1):
+                rows.append((no, grade, room_number, name, point, value_05, value_50))
+                no += 1
+
+        pages = [
+            airborne_page(rows[:12], include_header=True),
+            airborne_page(rows[12:13]),
+            airborne_page(rows[13:]),
+        ]
+        result = parse_airborne_particle(pages)
+
+        self.assertEqual(len(result['rooms']), 11)
+        self.assertEqual(sum(len(room['measurements']) for room in result['rooms']), 30)
+        self.assertEqual(
+            [room['room_name'] for room in result['rooms']],
+            [room[2] for room in AIRBORNE_ROOMS],
+        )
+        self.assertEqual(result['rooms'][2]['no_start'], 13)
+        self.assertEqual(result['rooms'][2]['no_end'], 14)
+        self.assertEqual(
+            result['rooms'][2]['measurements'],
+            [
+                {'point': 1, 'value_05': 30760, 'value_50': 1340},
+                {'point': 2, 'value_05': 17690, 'value_50': 550},
+            ],
+        )
 
 
 class AirChangeRateParserTest(unittest.TestCase):
