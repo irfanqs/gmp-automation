@@ -63,6 +63,10 @@ AIR_VELOCITY = {
         'low': 0.38,   # below this = fail
         'high': 0.52,  # above this = fail
     },
+    'action_limits': {
+        'low': 0.36,
+        'high': 0.54,
+    },
     'frequency': {
         'A': 6, 'B': 6, 'C': 12, 'D': 12,
     },
