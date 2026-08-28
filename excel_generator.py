@@ -95,7 +95,8 @@ def _write_limit_columns(ws, limit_specs, header_row, data_start_row, data_end_r
 
 
 def _build_linechart_for_limits(ws, limit_specs, colors, header_row,
-                                 data_start_row, data_end_row, start_col):
+                                 data_start_row, data_end_row, start_col,
+                                 show_labels=False):
     """
     Create a LineChart with one dashed series per limit spec.
     limit_specs: list of (label, value)
@@ -111,8 +112,10 @@ def _build_linechart_for_limits(ws, limit_specs, colors, header_row,
         line.add_data(ref, titles_from_data=True)
         s = line.series[-1]
         _style_limit_series(s, colors[i][0], colors[i][1])
-        # Limit lines are identified in the right-side legend, not via in-plot
-        # data labels (those collide with the bars and with each other).
+        if show_labels:
+            _add_last_point_label(s, data_end_row - data_start_row + 1, position='t')
+        # Most limit lines use the right-side legend; selected charts can also
+        # place the series name above the line.
     return line
 
 
@@ -174,14 +177,14 @@ def _set_str_categories(chart, ws, label_col, data_end_row):
     for s in chart.series:
         s.cat = cat
 
-def _add_last_point_label(series, n_points):
-    """Show series name as a data label on the LAST data point only (positioned right)."""
+def _add_last_point_label(series, n_points, position='r'):
+    """Show the series name on the last data point at the requested position."""
     try:
         from openpyxl.chart.label import DataLabel, DataLabelList
         last_idx = max(n_points - 1, 0)
         last_label = DataLabel(
             idx=last_idx,
-            dLblPos='r',
+            dLblPos=position,
             showSerName=True,
             showVal=False,
             showCatName=False,
@@ -217,7 +220,8 @@ def _hide_limit_lines_from_legend(chart, n_bar_series, n_limit_series):
 def _make_chart_sheet(wb, sheet_name, chart_title,
                        cat_col_specs, data_rows_map, semesters,
                        limit_specs, limit_colors,
-                       y_num_fmt=None):
+                       y_num_fmt=None, y_max_override=None,
+                       show_limit_labels=False):
     """
     Generic chart sheet builder.
 
@@ -275,7 +279,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     # A limit line is only drawn if it falls within this visible range; limits
     # far above the data (e.g. Grade D) would otherwise blow up the Y-axis and
     # squash every bar to the bottom of the plot.
-    y_max = _nice_y_max(data_max * 1.05)
+    y_max = y_max_override if y_max_override is not None else _nice_y_max(data_max * 1.05)
     vis_specs  = [(l, v) for (l, v), c in zip(limit_specs, limit_colors) if v <= y_max]
     vis_colors = [c       for (l, v), c in zip(limit_specs, limit_colors) if v <= y_max]
 
@@ -358,7 +362,8 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     # ── Limit line chart ──────────────────────────────────────────────────────
     if vis_specs:
         line = _build_linechart_for_limits(
-            ws, vis_specs, vis_colors, 1, 2, data_end_row, limit_start_col
+            ws, vis_specs, vis_colors, 1, 2, data_end_row, limit_start_col,
+            show_labels=show_limit_labels,
         )
         if line:
             bar += line
@@ -1216,7 +1221,7 @@ def _create_hepa_table_sheet(wb, ahu_num, ahu_semesters):
     """Create AHU-X Table sheet for HEPA Filter Test."""
     ws = wb.create_sheet(title=f"AHU-{ahu_num} Table")
 
-    headers = ['NO', '실번호', '실명', 'Average', '측정일자']
+    headers = ['NO', '실번호', '실명', 'Average', '측정기준', '측정일자']
     for col_idx, val in enumerate(headers, 1):
         cell = ws.cell(row=3, column=col_idx, value=val)
         apply_cell_style(cell, font=HEADER_FONT, fill=HEADER_FILL)
@@ -1236,15 +1241,17 @@ def _create_hepa_table_sheet(wb, ahu_num, ahu_semesters):
             ws.cell(row=row, column=3, value=item['item_name'])
             cell_avg = ws.cell(row=row, column=4, value=avg_decimal)
             cell_avg.number_format = '0.0000%'
-            ws.cell(row=row, column=5, value=semester_label)
+            standard_cell = ws.cell(row=row, column=5, value=HEPA_FILTER['alert_limit'])
+            standard_cell.number_format = '0.00%'
+            ws.cell(row=row, column=6, value=semester_label)
 
-            for c in range(1, 6):
+            for c in range(1, 7):
                 apply_cell_style(ws.cell(row=row, column=c))
 
             no += 1
             row += 1
 
-    widths = {'A': 6, 'B': 10, 'C': 22, 'D': 12, 'E': 12}
+    widths = {'A': 6, 'B': 10, 'C': 22, 'D': 12, 'E': 12, 'F': 12}
     for col, w in widths.items():
         ws.column_dimensions[col].width = w
 
@@ -1258,7 +1265,7 @@ def _create_hepa_chart_sheet(wb, ahu_num, table_ws):
         room_num  = table_ws.cell(row=r, column=2).value
         name      = table_ws.cell(row=r, column=3).value
         value     = table_ws.cell(row=r, column=4).value
-        semester  = table_ws.cell(row=r, column=5).value
+        semester  = table_ws.cell(row=r, column=6).value
         if name is None:
             continue
         data_rows.append({'room_num': room_num, 'name': name,
@@ -1266,7 +1273,9 @@ def _create_hepa_chart_sheet(wb, ahu_num, table_ws):
 
     semesters = sorted({d['semester'] for d in data_rows if d['semester']}, key=semester_sort_key)
     lim = HEPA_FILTER['alert_limit']
-    limit_specs = [('Limit: 0.01%', lim)]
+    data_max = max((d['value'] for d in data_rows), default=0)
+    y_max = HEPA_FILTER['chart_y_max'] if data_max <= lim else data_max * 1.2
+    limit_specs = [('측정기준 = 0.01%', lim)]
     colors = [(_LIMIT_COLORS['limit'], True)]
 
 
@@ -1280,6 +1289,8 @@ def _create_hepa_chart_sheet(wb, ahu_num, table_ws):
         limit_specs=limit_specs,
         limit_colors=colors,
         y_num_fmt='0.0000%',
+        y_max_override=y_max,
+        show_limit_labels=True,
     )
 
 # =============================================================================
