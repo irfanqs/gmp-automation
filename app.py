@@ -9,6 +9,7 @@ import uuid
 import traceback
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from werkzeug.utils import secure_filename
+from ahu_utils import extract_ahu_number
 from config import ANTHROPIC_API_KEY, UPLOAD_FOLDER, OUTPUT_FOLDER, get_semester_label, TEST_TYPES
 from ocr_engine import EXTRACTORS as CLAUDE_EXTRACTORS
 from excel_generator import GENERATORS
@@ -115,7 +116,7 @@ def process():
                 }[test_type]
                 if not data.get(data_key):
                     raise ValueError(messages['empty_data'])
-                ahu_num = str(data.get('ahu', 'unknown'))
+                ahu_num = extract_ahu_number(data.get('ahu'), pdf_path)
                 date_str = data.get('date', '2025.08.01')
                 semester_label = get_semester_label(date_str)
 
@@ -136,19 +137,6 @@ def process():
                     sem_entry['items'] = data.get('items', [])
                 elif test_type == 'airflow_pattern':
                     sem_entry['items'] = data.get('items', [])
-                    # For airflow pattern, the AHU might not be in the PDF
-                    # Try to get it from the filename
-                    if ahu_num == 'unknown':
-                        basename = os.path.basename(pdf_path).lower()
-                        for part in basename.replace('-', '_').split('_'):
-                            if part.startswith('ahu'):
-                                ahu_num = part.replace('ahu', '')
-                                break
-                        if ahu_num == 'unknown':
-                            ahu_num = 'unknown'
-
-                        if ahu_num not in all_ahu_data:
-                            all_ahu_data[ahu_num] = []
 
                 all_ahu_data[ahu_num].append(sem_entry)
 
