@@ -84,7 +84,7 @@ def _expand_table(rows):
         out_row = []
         col = 0
         cell_idx = 0
-        while cell_idx < len(row):
+        while cell_idx < len(row) or any(c >= col for c in pending):
             if col in pending:
                 text, remaining = pending[col]
                 out_row.append(text)
@@ -92,6 +92,10 @@ def _expand_table(rows):
                     del pending[col]
                 else:
                     pending[col] = (text, remaining - 1)
+                col += 1
+                continue
+            if cell_idx >= len(row):
+                out_row.append('')
                 col += 1
                 continue
             cell = row[cell_idx]
@@ -126,9 +130,11 @@ def _is_data_row(row):
     cell in the following columns (grade letter, room number, room name...)."""
     if not row:
         return False
-    if not re.fullmatch(r'\d+', str(row[0]).strip()):
-        return False
-    return any(re.search(r'[A-Za-z가-힣]', str(c)) for c in row[1:6])
+    first_is_number = bool(re.fullmatch(r'\d+', str(row[0]).strip()))
+    numbers = sum(_to_number(cell) is not None for cell in row)
+    has_grade = any(re.fullmatch(r'[ABCD]', str(cell).strip(), re.IGNORECASE) for cell in row)
+    has_text = any(re.search(r'[A-Za-z가-힣]', str(c)) for c in row[1:6])
+    return (first_is_number and has_text) or (numbers >= 2 and has_grade)
 
 
 def _merge_header_rows(table):
@@ -220,26 +226,34 @@ def extract_field(text, patterns, default=None):
 
 
 def extract_ahu(text):
+    compact = re.sub(r'\s+', '', text).replace('－', '-').replace('−', '-').replace('—', '-')
     return extract_field(
-        text,
-        [r'공조기\s*[-–]\s*(\d+)', r'해당\s*공조기[^\d]*(\d+)', r'공조기\s*[:\-]?\s*(\d+)'],
+        compact,
+        [
+            r'해당공조기[^\d]{0,20}(\d+)',
+            r'공조기(?:번호)?[:\-–]?(?:공조기)?(?:AHU)?[:\-–]?(\d+)',
+            r'AHU[:\-–]?(\d+)',
+        ],
         default='unknown',
     )
 
 
 def extract_date(text):
-    return extract_field(
-        text,
+    compact = re.sub(r'\s+', '', text)
+    date = extract_field(
+        compact,
         [
-            r'측정일자[^\d]*(\d{4}[.\-]\s*\d{1,2}[.\-]\s*\d{1,2})',
-            r'(\d{4}\.\d{1,2}\.\d{1,2})',
+            r'측정일자[^\d]*(\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2})',
+            r'(\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2})',
         ],
         default='2025.08.01',
     )
+    return date.replace('-', '.').replace('/', '.')
 
 
 def extract_result(text):
-    return extract_field(text, [r'측정\s*결과[^\S\n]*[:|]?\s*(적합|부적합)'], default='적합')
+    compact = re.sub(r'\s+', '', text)
+    return extract_field(compact, [r'측정결과[:|]?(적합|부적합)'], default='적합')
 
 
 def extract_standard(text):
@@ -488,40 +502,71 @@ def parse_air_change_rate(pages_text):
         used = _used_cols(header, 'grade', 'room_no', 'room_name', 'volume', 'total', 'ach', 'no', 'point')
         flow_cols = [i for i in range(len(header)) if i not in used]
 
+        point_i = _find_col(header, _ID_COLS_KEYWORDS['point'])
+        volume_i = _find_col(header, _ID_COLS_KEYWORDS['volume'])
+        total_i = _find_col(header, _ID_COLS_KEYWORDS['total'])
+        ach_i = _find_col(header, _ID_COLS_KEYWORDS['ach'])
+        no_i = _find_col(header, _ID_COLS_KEYWORDS['no'])
+        table_rooms = {}
+        previous_identity = None
+
         for row in rows:
             row = _align_row(row, len(header))
             if len(row) < len(header):
                 continue
             room_number = row[room_no_i] if room_no_i is not None else ''
             room_name = row[room_name_i] if room_name_i is not None else ''
+            grade = row[grade_i] if grade_i is not None else ''
+            volume = _to_number(row[volume_i]) if volume_i is not None else None
+
+            # Markdown OCR may leave merged identity cells blank on continuation rows.
+            if not room_number and not room_name and previous_identity:
+                grade, room_number, room_name, volume = previous_identity
             if not room_number and not room_name:
                 continue
+            previous_identity = (grade, room_number, room_name, volume)
 
-            air_flow_measurements = []
-            for c in flow_cols:
-                v = _to_number(row[c]) if c < len(row) else None
-                if v is None:
-                    continue
-                air_flow_measurements.append({'point': len(air_flow_measurements) + 1, 'air_flow': v})
+            key = (grade, room_number, room_name, volume)
+            if key not in table_rooms:
+                source_no = _to_number(row[no_i], as_int=True) if no_i is not None else None
+                table_rooms[key] = {
+                    'no': source_no or no_counter,
+                    'grade': grade,
+                    'room_number': room_number,
+                    'room_name': room_name,
+                    'volume': volume,
+                    'air_flow_measurements': [],
+                    'total_air_flow': None,
+                    'ach': None,
+                }
+                no_counter += 1
+            room = table_rooms[key]
 
-            total_i = _find_col(header, _ID_COLS_KEYWORDS['total'])
-            total_air_flow = _to_number(row[total_i]) if total_i is not None and total_i < len(row) else None
-            if total_air_flow is None and air_flow_measurements:
-                total_air_flow = round(sum(m['air_flow'] for m in air_flow_measurements), 1)
+            point_label = str(row[point_i]).strip() if point_i is not None else ''
+            flow_values = [_to_number(row[c]) for c in flow_cols if c < len(row)]
+            flow_values = [value for value in flow_values if value is not None]
+            explicit_total = _to_number(row[total_i]) if total_i is not None else None
 
-            volume_i = _find_col(header, _ID_COLS_KEYWORDS['volume'])
-            ach_i = _find_col(header, _ID_COLS_KEYWORDS['ach'])
-            rooms.append({
-                'no': no_counter,
-                'grade': row[grade_i] if grade_i is not None else '',
-                'room_number': room_number,
-                'room_name': room_name,
-                'volume': _to_number(row[volume_i]) if volume_i is not None and volume_i < len(row) else None,
-                'air_flow_measurements': air_flow_measurements,
-                'total_air_flow': total_air_flow,
-                'ach': _to_number(row[ach_i], as_int=True) if ach_i is not None and ach_i < len(row) else None,
-            })
-            no_counter += 1
+            if '합계' in point_label:
+                room['total_air_flow'] = explicit_total if explicit_total is not None else (flow_values[0] if flow_values else None)
+            else:
+                for value in flow_values:
+                    room['air_flow_measurements'].append({
+                        'point': len(room['air_flow_measurements']) + 1,
+                        'air_flow': value,
+                    })
+                if explicit_total is not None:
+                    room['total_air_flow'] = explicit_total
+
+            ach = _to_number(row[ach_i], as_int=True) if ach_i is not None else None
+            if ach is not None:
+                room['ach'] = ach
+
+        for room in table_rooms.values():
+            if room['total_air_flow'] is None and room['air_flow_measurements']:
+                room['total_air_flow'] = round(sum(m['air_flow'] for m in room['air_flow_measurements']), 1)
+            if room['air_flow_measurements'] or room['ach'] is not None:
+                rooms.append(room)
 
     return {
         'ahu': extract_ahu(readable),

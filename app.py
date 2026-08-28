@@ -33,6 +33,7 @@ ERROR_MESSAGES = {
         'file_not_found': '파일을 찾을 수 없습니다.',
         'server_error': '서버 오류:',
         'processing_error': '처리 오류:',
+        'empty_data': '측정표에서 데이터를 찾을 수 없습니다.',
     },
     'en': {
         'invalid_test': 'Invalid test type selected.',
@@ -42,6 +43,7 @@ ERROR_MESSAGES = {
         'file_not_found': 'File not found.',
         'server_error': 'Server error:',
         'processing_error': 'Error processing:',
+        'empty_data': 'No measurement data was found in the table.',
     },
 }
 
@@ -97,6 +99,15 @@ def process():
         for pdf_path in saved_paths:
             try:
                 data = extractor(pdf_path)
+                data_key = {
+                    'airborne_particle': 'rooms',
+                    'air_velocity': 'machines',
+                    'air_change_rate': 'rooms',
+                    'hepa_filter': 'items',
+                    'airflow_pattern': 'items',
+                }[test_type]
+                if not data.get(data_key):
+                    raise ValueError(messages['empty_data'])
                 ahu_num = str(data.get('ahu', 'unknown'))
                 date_str = data.get('date', '2025.08.01')
                 semester_label = get_semester_label(date_str)
