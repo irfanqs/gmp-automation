@@ -53,6 +53,19 @@ def _unique_ordered(iterable):
     return result
 
 
+def _cell_link_formula(ws, row, col):
+    """Return an Excel formula that links to one cell on another sheet."""
+    sheet_name = ws.title.replace("'", "''")
+    return f"='{sheet_name}'!${get_column_letter(col)}${row}"
+
+
+def _enable_auto_calculation(wb):
+    """Ensure linked Pivot formulas are recalculated when Excel opens the file."""
+    wb.calculation.calcMode = 'auto'
+    wb.calculation.fullCalcOnLoad = True
+    wb.calculation.forceFullCalc = True
+
+
 def _nice_y_max(raw_max):
     """Round raw_max up to a clean chart Y-axis ceiling."""
     if raw_max <= 0:
@@ -128,13 +141,9 @@ def _write_label_column(ws, data_end_row, source_cols, label_col, header='표시
     """Write a multi-line combined label column used as the chart X-axis."""
     ws.cell(row=1, column=label_col, value=header)
     for r in range(2, data_end_row + 1):
-        parts = []
-        for col in source_cols:
-            value = ws.cell(row=r, column=col).value
-            if value is None or value == '':
-                continue
-            parts.append(str(value))
-        ws.cell(row=r, column=label_col, value=separator.join(parts))
+        refs = [f'{get_column_letter(col)}{r}' for col in source_cols]
+        joiner = '&CHAR(10)&' if separator == '\n' else f'&"{separator}"&'
+        ws.cell(row=r, column=label_col, value=f"={joiner.join(refs)}")
 
 
 def _set_str_categories(chart, ws, label_col, data_end_row):
@@ -237,6 +246,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     limit_specs   : list of (label, value) — auto-filtered to visible range
     limit_colors  : list of (color_hex, is_action) matching limit_specs
     """
+    _enable_auto_calculation(wb)
     ws = wb.create_sheet(title=sheet_name)
     n_cat = len(cat_col_specs)
     n_sems = len(semesters)
@@ -256,17 +266,26 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     # ── Write data rows ───────────────────────────────────────────────────────
     for ri, cat_vals in enumerate(unique_cats):
         row = 2 + ri
+        source_row = next(
+            (item for item in data_rows_map
+             if all(item[k] == cat_vals[ki] for ki, (_, k) in enumerate(cat_col_specs))),
+            None,
+        )
         for ci, val in enumerate(cat_vals):
-            ws.cell(row=row, column=1 + ci, value=val)
+            key = cat_col_specs[ci][1]
+            source_ref = (source_row or {}).get('source_refs', {}).get(key)
+            ws.cell(row=row, column=1 + ci, value=source_ref or val)
         for si, sem in enumerate(semesters):
-            matched = next(
-                (r['value'] for r in data_rows_map
-                 if all(r[k] == cat_vals[ki] for ki, (_, k) in enumerate(cat_col_specs))
-                 and r['semester'] == sem),
+            matched_row = next(
+                (item for item in data_rows_map
+                 if all(item[k] == cat_vals[ki] for ki, (_, k) in enumerate(cat_col_specs))
+                 and item['semester'] == sem),
                 None
             )
-            cell = ws.cell(row=row, column=1 + n_cat + si, value=matched)
-            if y_num_fmt and matched is not None:
+            matched = matched_row['value'] if matched_row else None
+            cell_value = (matched_row or {}).get('value_ref', matched)
+            cell = ws.cell(row=row, column=1 + n_cat + si, value=cell_value)
+            if y_num_fmt and matched_row is not None:
                 cell.number_format = y_num_fmt
 
     n_items = len(unique_cats)
@@ -274,10 +293,9 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
 
     # ── Auto-scale: compute y_max from data, filter visible limits ────────────
     data_vals = [
-        ws.cell(row=r, column=1 + n_cat + si).value
-        for r in range(2, data_end_row + 1)
-        for si in range(n_sems)
-        if ws.cell(row=r, column=1 + n_cat + si).value is not None
+        value
+        for item in data_rows_map
+        if (value := _safe_float(item.get('value'))) is not None
     ]
     data_max = max(data_vals or [1])
     # Y-axis is driven by the DATA so the bars stay tall and readable.
@@ -660,7 +678,13 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
         if name is None:
             continue
         data_rows.append({'grade': grade, 'room_num': room_num, 'name': name,
-                           'value': value, 'semester': semester})
+                          'value': value, 'semester': semester,
+                          'source_refs': {
+                              'grade': _cell_link_formula(table_ws, r, 2),
+                              'room_num': _cell_link_formula(table_ws, r, 3),
+                              'name': _cell_link_formula(table_ws, r, 4),
+                          },
+                          'value_ref': _cell_link_formula(table_ws, r, value_col)})
 
     # The table is ordered with the latest semester first. Grade C and D are
     # measured annually in August, so February charts only show Grades A and B.
@@ -714,8 +738,8 @@ def generate_air_velocity_excel(all_ahu_data, output_path=None):
         ahu_semesters = all_ahu_data[ahu_num]
         ahu_semesters.sort(key=lambda s: semester_sort_key(s['semester']))
         _create_velocity_data_sheet(wb, ahu_num, ahu_semesters)
-        _create_velocity_table_sheet(wb, ahu_num, ahu_semesters)
-        _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters)
+        table_ws = _create_velocity_table_sheet(wb, ahu_num, ahu_semesters)
+        _create_velocity_chart_sheet(wb, ahu_num, table_ws)
     wb.save(output_path)
     return output_path
 
@@ -810,7 +834,10 @@ def _create_velocity_table_sheet(wb, ahu_num, ahu_semesters):
     """Create AHU-X Table sheet for Air Velocity Test."""
     ws = wb.create_sheet(title=f"AHU-{ahu_num} Table")
 
-    headers = ['NO.', '청정등급', '실번호', '실명', 'Average', '측정일자']
+    table_point_count = 4
+    headers = ['NO.', '청정등급', '실번호', '실명', 'Average']
+    headers += [f'측정점 {point}' for point in range(1, table_point_count + 1)]
+    headers += ['측정일자']
     for col_idx, val in enumerate(headers, 1):
         cell = ws.cell(row=4, column=col_idx, value=val)
         apply_cell_style(cell, font=HEADER_FONT, fill=HEADER_FILL)
@@ -821,38 +848,48 @@ def _create_velocity_table_sheet(wb, ahu_num, ahu_semesters):
         semester_label = sem_data['semester']
         for machine in sem_data['machines']:
             measurements = machine['measurements']
-            n_points = len(measurements)
-            avg = sum(m['value'] for m in measurements) / n_points if n_points > 0 else 0
+            measurement_count = len(measurements)
+            avg = sum(m['value'] for m in measurements) / measurement_count if measurement_count > 0 else 0
 
             ws.cell(row=row, column=1, value=no)
             ws.cell(row=row, column=2, value=machine['grade'])
             ws.cell(row=row, column=3, value=int(machine['room_number']) if machine['room_number'].isdigit() else machine['room_number'])
             ws.cell(row=row, column=4, value=machine['machine_name'])
             ws.cell(row=row, column=5, value=round(avg, 4))
-            ws.cell(row=row, column=6, value=semester_label)
+            for point in range(table_point_count):
+                value = measurements[point]['value'] if point < len(measurements) else None
+                ws.cell(row=row, column=6 + point, value=value)
+            ws.cell(row=row, column=6 + table_point_count, value=semester_label)
 
-            for c in range(1, 7):
+            for c in range(1, 7 + table_point_count):
                 apply_cell_style(ws.cell(row=row, column=c))
 
             no += 1
             row += 1
 
-    widths = {'A': 6, 'B': 10, 'C': 10, 'D': 30, 'E': 12, 'F': 12}
+    widths = {'A': 6, 'B': 10, 'C': 10, 'D': 30, 'E': 12}
     for col, w in widths.items():
         ws.column_dimensions[col].width = w
+    for col in range(6, 6 + table_point_count):
+        ws.column_dimensions[get_column_letter(col)].width = 12
+    ws.column_dimensions[get_column_letter(6 + table_point_count)].width = 12
 
     return ws
 
 
-def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
+def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
     """Create a chart with one series for each of the four measurement points."""
+    _enable_auto_calculation(wb)
     ws = wb.create_sheet(title=f"AHU-{ahu_num} Pivot")
-    max_points = max(
-        (len(machine['measurements'])
-         for semester in ahu_semesters for machine in semester['machines']),
-        default=4,
+    point_cols = [
+        col for col in range(1, table_ws.max_column + 1)
+        if str(table_ws.cell(row=4, column=col).value or '').startswith('측정점 ')
+    ]
+    n_points = len(point_cols)
+    date_col = next(
+        col for col in range(1, table_ws.max_column + 1)
+        if table_ws.cell(row=4, column=col).value == '측정일자'
     )
-    n_points = max(4, max_points)
     limit_specs = [
         (f"경고기준 = {AIR_VELOCITY['alert_limits']['low']} m/s 미만",
          AIR_VELOCITY['alert_limits']['low'], _LIMIT_COLORS['lower_alert'], False),
@@ -869,25 +906,28 @@ def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
     for col, header in enumerate(headers, 1):
         ws.cell(row=1, column=col, value=header)
 
-    rows = [(semester['semester'], machine)
-            for semester in ahu_semesters for machine in semester['machines']]
-    for row_num, (semester, machine) in enumerate(rows, 2):
-        values = [m['value'] for m in machine['measurements']]
-        ws.cell(row=row_num, column=1, value=machine['grade'])
-        ws.cell(row=row_num, column=2, value=machine['room_number'])
-        ws.cell(row=row_num, column=3, value=machine['machine_name'])
-        ws.cell(row=row_num, column=4, value=semester)
-        for point in range(n_points):
+    table_rows = [
+        row for row in range(5, table_ws.max_row + 1)
+        if table_ws.cell(row=row, column=4).value is not None
+    ]
+    for row_num, table_row in enumerate(table_rows, 2):
+        ws.cell(row=row_num, column=1, value=_cell_link_formula(table_ws, table_row, 2))
+        ws.cell(row=row_num, column=2, value=_cell_link_formula(table_ws, table_row, 3))
+        ws.cell(row=row_num, column=3, value=_cell_link_formula(table_ws, table_row, 4))
+        ws.cell(row=row_num, column=4, value=_cell_link_formula(table_ws, table_row, date_col))
+        for point, source_col in enumerate(point_cols):
             ws.cell(row=row_num, column=5 + point,
-                    value=values[point] if point < len(values) else None)
+                    value=_cell_link_formula(table_ws, table_row, source_col))
         limit_start_col = 5 + n_points
         for offset, (_, value, _, _) in enumerate(limit_specs):
             ws.cell(row=row_num, column=limit_start_col + offset, value=value)
-        ws.cell(row=row_num, column=limit_start_col + len(limit_specs),
-                value=f"{machine['grade']}\n{machine['room_number']}\n"
-                      f"{machine['machine_name']}\n{semester}")
+        ws.cell(
+            row=row_num,
+            column=limit_start_col + len(limit_specs),
+            value=f'=A{row_num}&CHAR(10)&B{row_num}&CHAR(10)&C{row_num}&CHAR(10)&D{row_num}',
+        )
 
-    data_end_row = max(1, len(rows) + 1)
+    data_end_row = max(1, len(table_rows) + 1)
     for col in range(1, len(headers) + 1):
         ws.column_dimensions[get_column_letter(col)].width = 14 if col >= 4 else 22
 
@@ -905,7 +945,7 @@ def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
     chart.y_axis.scaling.max = AIR_VELOCITY['chart_y_max']
     chart.legend.position = 'r'
     chart.legend.overlay = False
-    chart.width = max(19, min(100, len(rows) * 3.2))
+    chart.width = max(19, min(100, len(table_rows) * 3.2))
     chart.height = 15
     chart.x_axis.tickLblSkip = 1
     for point in range(n_points):
@@ -925,9 +965,9 @@ def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
         _style_limit_series(series, color, is_action)
         _add_last_point_label(
             series,
-            len(rows),
+            len(table_rows),
             position='t',
-            point_index=max(len(rows) - offset - 1, 0),
+            point_index=max(len(table_rows) - offset - 1, 0),
         )
     chart += limit_chart
     _hide_limit_lines_from_legend(chart, n_points, len(limit_specs))
@@ -1105,7 +1145,13 @@ def _create_ach_chart_sheet(wb, ahu_num, table_ws):
         if name is None:
             continue
         data_rows.append({'grade': grade, 'room_num': room_num, 'name': name,
-                           'value': value, 'semester': semester})
+                          'value': value, 'semester': semester,
+                          'source_refs': {
+                              'grade': _cell_link_formula(table_ws, r, 2),
+                              'room_num': _cell_link_formula(table_ws, r, 3),
+                              'name': _cell_link_formula(table_ws, r, 4),
+                          },
+                          'value_ref': _cell_link_formula(table_ws, r, 5)})
 
     semesters = sorted({d['semester'] for d in data_rows if d['semester']}, key=semester_sort_key)
     grades_present = sorted({d['grade'] for d in data_rows if d['grade']})
@@ -1292,7 +1338,12 @@ def _create_hepa_chart_sheet(wb, ahu_num, table_ws):
         if name is None:
             continue
         data_rows.append({'room_num': room_num, 'name': name,
-                           'value': value, 'semester': semester})
+                          'value': value, 'semester': semester,
+                          'source_refs': {
+                              'room_num': _cell_link_formula(table_ws, r, 2),
+                              'name': _cell_link_formula(table_ws, r, 3),
+                          },
+                          'value_ref': _cell_link_formula(table_ws, r, 4)})
 
     semesters = sorted({d['semester'] for d in data_rows if d['semester']}, key=semester_sort_key)
     lim = HEPA_FILTER['alert_limit']
