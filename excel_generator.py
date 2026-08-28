@@ -848,17 +848,22 @@ def _create_velocity_table_sheet(wb, ahu_num, ahu_semesters):
         semester_label = sem_data['semester']
         for machine in sem_data['machines']:
             measurements = machine['measurements']
-            measurement_count = len(measurements)
-            avg = sum(m['value'] for m in measurements) / measurement_count if measurement_count > 0 else 0
 
             ws.cell(row=row, column=1, value=no)
             ws.cell(row=row, column=2, value=machine['grade'])
             ws.cell(row=row, column=3, value=int(machine['room_number']) if machine['room_number'].isdigit() else machine['room_number'])
             ws.cell(row=row, column=4, value=machine['machine_name'])
-            ws.cell(row=row, column=5, value=round(avg, 4))
             for point in range(table_point_count):
                 value = measurements[point]['value'] if point < len(measurements) else None
                 ws.cell(row=row, column=6 + point, value=value)
+            first_point_col = get_column_letter(6)
+            last_point_col = get_column_letter(5 + table_point_count)
+            average_cell = ws.cell(
+                row=row,
+                column=5,
+                value=f'=IFERROR(AVERAGE({first_point_col}{row}:{last_point_col}{row}),0)',
+            )
+            average_cell.number_format = '0.0000'
             ws.cell(row=row, column=6 + table_point_count, value=semester_label)
 
             for c in range(1, 7 + table_point_count):
@@ -878,14 +883,13 @@ def _create_velocity_table_sheet(wb, ahu_num, ahu_semesters):
 
 
 def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
-    """Create a chart with one series for each of the four measurement points."""
+    """Create an Average chart linked to the four Table measurement points."""
     _enable_auto_calculation(wb)
     ws = wb.create_sheet(title=f"AHU-{ahu_num} Pivot")
-    point_cols = [
+    average_col = next(
         col for col in range(1, table_ws.max_column + 1)
-        if str(table_ws.cell(row=4, column=col).value or '').startswith('측정점 ')
-    ]
-    n_points = len(point_cols)
+        if table_ws.cell(row=4, column=col).value == 'Average'
+    )
     date_col = next(
         col for col in range(1, table_ws.max_column + 1)
         if table_ws.cell(row=4, column=col).value == '측정일자'
@@ -901,7 +905,7 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
          AIR_VELOCITY['action_limits']['high'], _LIMIT_COLORS['upper_action'], True),
     ]
     headers = ['청정등급', '실번호', '실명', '측정일자']
-    headers += [f'측정점 {i}' for i in range(1, n_points + 1)]
+    headers += ['Average']
     headers += [label for label, _, _, _ in limit_specs] + ['표시명']
     for col, header in enumerate(headers, 1):
         ws.cell(row=1, column=col, value=header)
@@ -915,10 +919,9 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
         ws.cell(row=row_num, column=2, value=_cell_link_formula(table_ws, table_row, 3))
         ws.cell(row=row_num, column=3, value=_cell_link_formula(table_ws, table_row, 4))
         ws.cell(row=row_num, column=4, value=_cell_link_formula(table_ws, table_row, date_col))
-        for point, source_col in enumerate(point_cols):
-            ws.cell(row=row_num, column=5 + point,
-                    value=_cell_link_formula(table_ws, table_row, source_col))
-        limit_start_col = 5 + n_points
+        ws.cell(row=row_num, column=5,
+                value=_cell_link_formula(table_ws, table_row, average_col))
+        limit_start_col = 6
         for offset, (_, value, _, _) in enumerate(limit_specs):
             ws.cell(row=row_num, column=limit_start_col + offset, value=value)
         ws.cell(
@@ -948,10 +951,9 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
     chart.width = max(19, min(100, len(table_rows) * 3.2))
     chart.height = 15
     chart.x_axis.tickLblSkip = 1
-    for point in range(n_points):
-        chart.add_data(Reference(ws, min_col=5 + point, min_row=1, max_row=data_end_row),
-                       titles_from_data=True)
-    limit_start_col = 5 + n_points
+    chart.add_data(Reference(ws, min_col=5, min_row=1, max_row=data_end_row),
+                   titles_from_data=True)
+    limit_start_col = 6
     categories_col = limit_start_col + len(limit_specs)
     chart.set_categories(Reference(ws, min_col=categories_col, min_row=2, max_row=data_end_row))
 
@@ -970,7 +972,7 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
             point_index=max(len(table_rows) - offset - 1, 0),
         )
     chart += limit_chart
-    _hide_limit_lines_from_legend(chart, n_points, len(limit_specs))
+    _hide_limit_lines_from_legend(chart, 1, len(limit_specs))
     chart.x_axis.axPos = 'b'
     chart.x_axis.tickLblPos = 'nextTo'
     ws.add_chart(chart, f'{get_column_letter(len(headers) + 3)}1')
