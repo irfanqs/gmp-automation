@@ -28,6 +28,10 @@ _LIMIT_COLORS = {
     'D': {'alert': '7030A0', 'action': '9B59B6'},
     'lower': 'C00000',
     'upper': 'C07000',
+    'lower_action': 'FF0000',
+    'lower_alert': 'C00000',
+    'upper_alert': '70AD47',
+    'upper_action': '00B050',
     'limit': 'C00000',
 }
 
@@ -831,9 +835,19 @@ def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
         default=4,
     )
     n_points = max(4, max_points)
+    limit_specs = [
+        (f"Lower Action Limit: {AIR_VELOCITY['action_limits']['low']} m/s",
+         AIR_VELOCITY['action_limits']['low'], _LIMIT_COLORS['lower_action'], True),
+        (f"Lower Alert Limit: {AIR_VELOCITY['alert_limits']['low']} m/s",
+         AIR_VELOCITY['alert_limits']['low'], _LIMIT_COLORS['lower_alert'], False),
+        (f"Upper Alert Limit: {AIR_VELOCITY['alert_limits']['high']} m/s",
+         AIR_VELOCITY['alert_limits']['high'], _LIMIT_COLORS['upper_alert'], False),
+        (f"Upper Action Limit: {AIR_VELOCITY['action_limits']['high']} m/s",
+         AIR_VELOCITY['action_limits']['high'], _LIMIT_COLORS['upper_action'], True),
+    ]
     headers = ['청정등급', '실번호', '실명', '측정일자']
     headers += [f'측정점 {i}' for i in range(1, n_points + 1)]
-    headers += ['Lower Limit', 'Upper Limit', '표시명']
+    headers += [label for label, _, _, _ in limit_specs] + ['표시명']
     for col, header in enumerate(headers, 1):
         ws.cell(row=1, column=col, value=header)
 
@@ -848,9 +862,10 @@ def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
         for point in range(n_points):
             ws.cell(row=row_num, column=5 + point,
                     value=values[point] if point < len(values) else None)
-        ws.cell(row=row_num, column=5 + n_points, value=AIR_VELOCITY['alert_limits']['low'])
-        ws.cell(row=row_num, column=6 + n_points, value=AIR_VELOCITY['alert_limits']['high'])
-        ws.cell(row=row_num, column=7 + n_points,
+        limit_start_col = 5 + n_points
+        for offset, (_, value, _, _) in enumerate(limit_specs):
+            ws.cell(row=row_num, column=limit_start_col + offset, value=value)
+        ws.cell(row=row_num, column=limit_start_col + len(limit_specs),
                 value=f"{machine['grade']}\n{machine['room_number']}\n"
                       f"{machine['machine_name']}\n{semester}")
 
@@ -878,18 +893,17 @@ def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
     for point in range(n_points):
         chart.add_data(Reference(ws, min_col=5 + point, min_row=1, max_row=data_end_row),
                        titles_from_data=True)
-    categories_col = 7 + n_points
+    limit_start_col = 5 + n_points
+    categories_col = limit_start_col + len(limit_specs)
     chart.set_categories(Reference(ws, min_col=categories_col, min_row=2, max_row=data_end_row))
 
     limit_chart = LineChart()
-    for col, label, color in [
-        (5 + n_points, f"Lower Limit: {AIR_VELOCITY['alert_limits']['low']} m/s", _LIMIT_COLORS['lower']),
-        (6 + n_points, f"Upper Limit: {AIR_VELOCITY['alert_limits']['high']} m/s", _LIMIT_COLORS['upper']),
-    ]:
+    for offset, (label, _, color, is_action) in enumerate(limit_specs):
+        col = limit_start_col + offset
         ws.cell(row=1, column=col, value=label)
         limit_chart.add_data(Reference(ws, min_col=col, min_row=1, max_row=data_end_row),
                              titles_from_data=True)
-        _style_limit_series(limit_chart.series[-1], color)
+        _style_limit_series(limit_chart.series[-1], color, is_action)
     chart += limit_chart
     chart.x_axis.axPos = 'b'
     chart.x_axis.tickLblPos = 'nextTo'
