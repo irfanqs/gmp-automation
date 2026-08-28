@@ -760,7 +760,6 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
         limit_specs=limit_specs,
         limit_colors=colors,
         y_max_override=y_max,
-        show_limit_labels=True,
         hide_limit_legend=True,
         limit_refs=limit_refs,
     )
@@ -1006,12 +1005,6 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
                              titles_from_data=True)
         series = limit_chart.series[-1]
         _style_limit_series(series, color, is_action)
-        _add_last_point_label(
-            series,
-            len(table_rows),
-            position='t',
-            point_index=max(len(table_rows) - offset - 1, 0),
-        )
     chart += limit_chart
     _hide_limit_lines_from_legend(chart, 1, len(limit_specs))
     chart.x_axis.axPos = 'b'
@@ -1234,7 +1227,6 @@ def _create_ach_chart_sheet(wb, ahu_num, table_ws):
         limit_specs=limit_specs,
         limit_colors=colors,
         y_max_override=y_max,
-        show_limit_labels=True,
         hide_limit_legend=True,
         limit_refs=limit_refs,
     )
@@ -1428,7 +1420,6 @@ def _create_hepa_chart_sheet(wb, ahu_num, table_ws):
         limit_colors=colors,
         y_num_fmt='0.0000%',
         y_max_override=y_max,
-        show_limit_labels=True,
         hide_limit_legend=True,
         limit_refs=limit_refs,
     )
