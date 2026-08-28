@@ -17,6 +17,10 @@ class AhuNumberTest(unittest.TestCase):
         self.assertEqual(extract_ahu_number('0', filename), '33')
         self.assertEqual(extract_ahu_number('AHU-0'), 'unknown')
 
+    def test_filename_ahu_overrides_an_incorrect_ocr_number(self):
+        filename = '/tmp/uuid_AHU-33_hepa_filter.pdf'
+        self.assertEqual(extract_ahu_number('1', filename), '33')
+
 
 if __name__ == '__main__':
     unittest.main()

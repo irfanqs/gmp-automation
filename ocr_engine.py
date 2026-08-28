@@ -119,7 +119,8 @@ IMPORTANT RULES:
 - "value_50" is the 5.0 µm measurement value (integer)
 - Group measurements by room (same room_number + room_name = same room object)
 - Include ALL pages of data
-- For the AHU number, extract only the number (e.g., if it says "공조기-33", return "33")
+- Read AHU ONLY from the top 해당 공조기 field (e.g., 공조기-33 means "33")
+- Never infer AHU from NO, 측정번호, particle sizes such as 0.5 µm, or measurement values; return "unknown" if unreadable
 - Return ONLY the JSON, no markdown, no explanation"""
 
 
@@ -156,6 +157,7 @@ IMPORTANT RULES:
 - "value" is the measurement value in m/s (decimal number)
 - Group measurements by machine (same machine_name = same machine object)
 - Include ALL pages of data
+- Read AHU ONLY from the top 해당 공조기 field; never infer it from NO or 측정번호, and return "unknown" if unreadable
 - Return ONLY the JSON, no markdown, no explanation"""
 
 
@@ -196,7 +198,8 @@ IMPORTANT RULES:
 - "air_flow" values are from 풍량(m³/hr) column
 - "total_air_flow" is the 합계 value (sum of air_flow values). If only 1 measurement point, total = that single value.
 - "ach" is from 환기횟수(회/hr) column (integer)
-- Read "ahu" from the top 해당 공조기 field; for example 공조기-37 means "37"
+- Read "ahu" ONLY from the top 해당 공조기 field; never infer it from NO, 측정번호, or measurement values
+- If 해당 공조기 is unreadable, return "unknown"
 - Include ALL rows
 - Return ONLY the JSON, no markdown, no explanation"""
 
@@ -232,6 +235,8 @@ IMPORTANT RULES:
 - Group measurements by item (same room_number + item_name = same item object)
 - There is NO 청정등급 column in this test type
 - Include ALL pages of data
+- Read AHU ONLY from the top 해당 공조기 field (the value below it may be 공조기-33)
+- Never use NO, 측정번호, 0.01%, or 측정값 as AHU; return "unknown" if the field is unreadable
 - Return ONLY the JSON, no markdown, no explanation"""
 
 
@@ -240,7 +245,7 @@ PROMPT_AIRFLOW_PATTERN = """You are analyzing scanned Korean GMP documents: 기�
 Each page is a separate test for one equipment/room. Extract ALL data from ALL pages and return ONLY valid JSON (no other text) with this exact structure:
 
 {
-  "ahu": "the AHU number - look for it in the document context or filename",
+  "ahu": "unknown unless an explicit AHU field is visible in the document",
   "items": [
     {
       "name": "무균시험실 BSC",
@@ -261,6 +266,7 @@ IMPORTANT RULES:
 - "video_attached" is from 동영상 첨부 section
 - "judgment" is from 판정결과 section (적합 or 부적합)
 - Do not return field labels such as 측정결과 or 판정결과 as field values
+- Do not infer an AHU number from unrelated numbers; return "unknown" when the document has no AHU field
 - Extract data from ALL pages
 - Return ONLY the JSON, no markdown, no explanation"""
 
