@@ -186,6 +186,9 @@ Extract ALL data and return ONLY valid JSON (no other text) with this exact stru
 
 IMPORTANT RULES:
 - Extract EVERY row from the measurement table
+- The table uses merged cells: multiple measurement rows followed by a 합계 row belong to ONE room
+- Put only numbered measurement rows in "air_flow_measurements"; do not treat 합계 as another room or measurement point
+- Read "total_air_flow" from the 풍량 value on the 합계 row
 - "grade" is from 청정등급 column (B, C, or D - no A for ACH)
 - "room_number" is from 실번호 column
 - "room_name" is from 실명 column
@@ -193,6 +196,7 @@ IMPORTANT RULES:
 - "air_flow" values are from 풍량(m³/hr) column
 - "total_air_flow" is the 합계 value (sum of air_flow values). If only 1 measurement point, total = that single value.
 - "ach" is from 환기횟수(회/hr) column (integer)
+- Read "ahu" from the top 해당 공조기 field; for example 공조기-37 means "37"
 - Include ALL rows
 - Return ONLY the JSON, no markdown, no explanation"""
 
