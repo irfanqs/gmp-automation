@@ -1,6 +1,7 @@
 import unittest
 
 from deepseek_ocr.parsers import (
+    extract_ahu,
     parse_airborne_particle,
     parse_air_change_rate,
     parse_airflow_pattern,
@@ -38,6 +39,9 @@ def airborne_page(rows, include_header=False):
 
 
 class AirborneParticleParserTest(unittest.TestCase):
+    def test_does_not_treat_particle_size_as_ahu_zero(self):
+        self.assertEqual(extract_ahu('해당 공조기 0.5 μm'), 'unknown')
+
     def test_reuses_header_for_continuation_pages_and_keeps_all_30_points(self):
         rows = []
         no = 1
@@ -47,12 +51,16 @@ class AirborneParticleParserTest(unittest.TestCase):
                 no += 1
 
         pages = [
-            airborne_page(rows[:12], include_header=True),
+            (
+                '<table><tr><td>해당 공조기</td><td>공조기-33</td></tr></table>'
+                + airborne_page(rows[:12], include_header=True)
+            ),
             airborne_page(rows[12:13]),
             airborne_page(rows[13:]),
         ]
         result = parse_airborne_particle(pages)
 
+        self.assertEqual(result['ahu'], '33')
         self.assertEqual(len(result['rooms']), 11)
         self.assertEqual(sum(len(room['measurements']) for room in result['rooms']), 30)
         self.assertEqual(

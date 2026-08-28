@@ -12,6 +12,11 @@ class AhuNumberTest(unittest.TestCase):
         filename = '/tmp/uuid_AHU-37_air_change_rate.pdf'
         self.assertEqual(extract_ahu_number('unknown', filename), '37')
 
+    def test_rejects_zero_and_falls_back_to_filename(self):
+        filename = '/tmp/uuid_AHU-33_airborne_particle.pdf'
+        self.assertEqual(extract_ahu_number('0', filename), '33')
+        self.assertEqual(extract_ahu_number('AHU-0'), 'unknown')
+
 
 if __name__ == '__main__':
     unittest.main()
