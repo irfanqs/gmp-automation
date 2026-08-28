@@ -100,7 +100,7 @@ HEPA_FILTER = {
     'excel_filename': 'HEPA_Filter_Test_Result_and_Graph.xlsx',
     'alert_limit': 0.0001,  # 0.01% as decimal
     'sheets_per_ahu': 3,  # Data, Table, Pivot
-    'chart_y_max': 0.001,  # 0.1%
+    'chart_y_max': 0.0002,  # 0.02% minimum chart maximum
 }
 
 # =============================================================================
