@@ -322,7 +322,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     # Let each category reserve enough horizontal space so Excel does not turn
     # labels into "B..." / "D..." or rotate them diagonally.
     bar.width = max(19, min(100, n_items * 3.2))
-    bar.height = 8
+    bar.height = 15
     # Legend on the right so it sits in whitespace and never overlaps the plot.
     bar.legend.position = 'r'
     bar.legend.overlay = False
@@ -873,7 +873,7 @@ def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
     chart.legend.position = 'r'
     chart.legend.overlay = False
     chart.width = max(19, min(100, len(rows) * 3.2))
-    chart.height = 8
+    chart.height = 15
     chart.x_axis.tickLblSkip = 1
     for point in range(n_points):
         chart.add_data(Reference(ws, min_col=5 + point, min_row=1, max_row=data_end_row),
