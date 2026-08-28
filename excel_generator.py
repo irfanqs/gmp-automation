@@ -22,16 +22,16 @@ from config import (
 
 # ── Limit line color map (RRGGBB for openpyxl) ────────────────────────────────
 _LIMIT_COLORS = {
-    'A': {'alert': 'C00000', 'action': 'FF3300'},
-    'B': {'alert': 'C07000', 'action': 'FF9900'},
-    'C': {'alert': '375623', 'action': '70AD47'},
-    'D': {'alert': '7030A0', 'action': '9B59B6'},
+    'A': {'alert': 'FF9999', 'action': 'C00000'},
+    'B': {'alert': 'FFD966', 'action': 'ED7D31'},
+    'C': {'alert': '70AD47', 'action': '375623'},
+    'D': {'alert': '7030A0', 'action': '7F7F7F'},
     'lower': 'C00000',
     'upper': 'C07000',
-    'lower_action': 'FF0000',
-    'lower_alert': 'C00000',
+    'lower_action': 'C00000',
+    'lower_alert': 'FF9999',
     'upper_alert': '70AD47',
-    'upper_action': '00B050',
+    'upper_action': '375623',
     'limit': 'C00000',
 }
 
@@ -113,9 +113,14 @@ def _build_linechart_for_limits(ws, limit_specs, colors, header_row,
         s = line.series[-1]
         _style_limit_series(s, colors[i][0], colors[i][1])
         if show_labels:
-            _add_last_point_label(s, data_end_row - data_start_row + 1, position='t')
-        # Most limit lines use the right-side legend; selected charts can also
-        # place the series name above the line.
+            n_points = data_end_row - data_start_row + 1
+            _add_last_point_label(
+                s,
+                n_points,
+                position='t',
+                point_index=max(n_points - i - 1, 0),
+            )
+        # Labels are staggered across categories to reduce overlap.
     return line
 
 
@@ -177,11 +182,11 @@ def _set_str_categories(chart, ws, label_col, data_end_row):
     for s in chart.series:
         s.cat = cat
 
-def _add_last_point_label(series, n_points, position='r'):
-    """Show the series name on the last data point at the requested position."""
+def _add_last_point_label(series, n_points, position='r', point_index=None):
+    """Show the series name at one data point and the requested position."""
     try:
         from openpyxl.chart.label import DataLabel, DataLabelList
-        last_idx = max(n_points - 1, 0)
+        last_idx = max(n_points - 1, 0) if point_index is None else point_index
         last_label = DataLabel(
             idx=last_idx,
             dLblPos=position,
@@ -221,7 +226,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
                        cat_col_specs, data_rows_map, semesters,
                        limit_specs, limit_colors,
                        y_num_fmt=None, y_max_override=None,
-                       show_limit_labels=False):
+                       show_limit_labels=False, hide_limit_legend=False):
     """
     Generic chart sheet builder.
 
@@ -367,6 +372,8 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
         )
         if line:
             bar += line
+            if hide_limit_legend:
+                _hide_limit_lines_from_legend(bar, n_sems, len(vis_specs))
 
     bar.x_axis.axPos = "b"
     bar.x_axis.tickLblPos = "nextTo"
@@ -669,10 +676,10 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
     limit_specs, colors = [], []
     for g in grades_present:
         if g in alert_map:
-            limit_specs.append((f"Grade {g} 경고기준: {alert_map[g]:,}", alert_map[g]))
+            limit_specs.append((f"{g} Grade 경고기준 = {alert_map[g]:,}", alert_map[g]))
             colors.append((_LIMIT_COLORS.get(g, {}).get('alert', 'C00000'), False))
         if g in action_map:
-            limit_specs.append((f"Grade {g} 조치기준: {action_map[g]:,}", action_map[g]))
+            limit_specs.append((f"{g} Grade 조치기준 = {action_map[g]:,}", action_map[g]))
             colors.append((_LIMIT_COLORS.get(g, {}).get('action', 'FF3300'), True))
 
     chart_values = [row['value'] for row in data_rows if row['value'] is not None]
@@ -689,6 +696,8 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
         limit_specs=limit_specs,
         limit_colors=colors,
         y_max_override=y_max,
+        show_limit_labels=True,
+        hide_limit_legend=True,
     )
 
 # =============================================================================
@@ -845,13 +854,13 @@ def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
     )
     n_points = max(4, max_points)
     limit_specs = [
-        (f"Lower Action Limit: {AIR_VELOCITY['action_limits']['low']} m/s",
-         AIR_VELOCITY['action_limits']['low'], _LIMIT_COLORS['lower_action'], True),
-        (f"Lower Alert Limit: {AIR_VELOCITY['alert_limits']['low']} m/s",
+        (f"경고기준 = {AIR_VELOCITY['alert_limits']['low']} m/s 미만",
          AIR_VELOCITY['alert_limits']['low'], _LIMIT_COLORS['lower_alert'], False),
-        (f"Upper Alert Limit: {AIR_VELOCITY['alert_limits']['high']} m/s",
+        (f"조치기준 = {AIR_VELOCITY['action_limits']['low']} m/s 미만",
+         AIR_VELOCITY['action_limits']['low'], _LIMIT_COLORS['lower_action'], True),
+        (f"경고기준 = {AIR_VELOCITY['alert_limits']['high']} m/s 초과",
          AIR_VELOCITY['alert_limits']['high'], _LIMIT_COLORS['upper_alert'], False),
-        (f"Upper Action Limit: {AIR_VELOCITY['action_limits']['high']} m/s",
+        (f"조치기준 = {AIR_VELOCITY['action_limits']['high']} m/s 초과",
          AIR_VELOCITY['action_limits']['high'], _LIMIT_COLORS['upper_action'], True),
     ]
     headers = ['청정등급', '실번호', '실명', '측정일자']
@@ -912,8 +921,16 @@ def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
         ws.cell(row=1, column=col, value=label)
         limit_chart.add_data(Reference(ws, min_col=col, min_row=1, max_row=data_end_row),
                              titles_from_data=True)
-        _style_limit_series(limit_chart.series[-1], color, is_action)
+        series = limit_chart.series[-1]
+        _style_limit_series(series, color, is_action)
+        _add_last_point_label(
+            series,
+            len(rows),
+            position='t',
+            point_index=max(len(rows) - offset - 1, 0),
+        )
     chart += limit_chart
+    _hide_limit_lines_from_legend(chart, n_points, len(limit_specs))
     chart.x_axis.axPos = 'b'
     chart.x_axis.tickLblPos = 'nextTo'
     ws.add_chart(chart, f'{get_column_letter(len(headers) + 3)}1')
@@ -1098,10 +1115,10 @@ def _create_ach_chart_sheet(wb, ahu_num, table_ws):
     limit_specs, colors = [], []
     for g in grades_present:
         if g in alert_map:
-            limit_specs.append((f"Grade {g} 경고기준: {alert_map[g]}", alert_map[g]))
+            limit_specs.append((f"{g} Grade 경고기준 = {alert_map[g]} 회/hr 미만", alert_map[g]))
             colors.append((_LIMIT_COLORS.get(g, {}).get('alert', 'C00000'), False))
         if g in action_map:
-            limit_specs.append((f"Grade {g} 조치기준: {action_map[g]}", action_map[g]))
+            limit_specs.append((f"{g} Grade 조치기준 = {action_map[g]} 회/hr 미만", action_map[g]))
             colors.append((_LIMIT_COLORS.get(g, {}).get('action', 'FF3300'), True))
 
 
@@ -1114,6 +1131,8 @@ def _create_ach_chart_sheet(wb, ahu_num, table_ws):
         semesters=semesters,
         limit_specs=limit_specs,
         limit_colors=colors,
+        show_limit_labels=True,
+        hide_limit_legend=True,
     )
 # =============================================================================
 # D. HEPA FILTER TEST EXCEL GENERATOR
@@ -1295,6 +1314,7 @@ def _create_hepa_chart_sheet(wb, ahu_num, table_ws):
         y_num_fmt='0.0000%',
         y_max_override=y_max,
         show_limit_labels=True,
+        hide_limit_legend=True,
     )
 
 # =============================================================================
