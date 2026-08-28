@@ -226,13 +226,33 @@ def extract_field(text, patterns, default=None):
 
 
 def extract_ahu(text):
+    def candidate_number(value, allow_plain_number=False):
+        compact_value = re.sub(r'\s+', '', str(value or ''))
+        compact_value = compact_value.replace('－', '-').replace('−', '-').replace('—', '-')
+        patterns = [r'(?:공조기|AHU)[_:\-–]*([1-9]\d{0,2})(?!\d)']
+        if allow_plain_number:
+            patterns.append(r'^([1-9]\d{0,2})$')
+        return extract_field(compact_value, patterns)
+
+    if '<table' in text.lower():
+        for table in extract_tables(text):
+            for row in table:
+                for index, cell in enumerate(row):
+                    label = re.sub(r'[\s:|]+', '', str(cell))
+                    if not (label.startswith('해당공조기') or label == 'AHU'):
+                        continue
+                    for candidate in row[index + 1:index + 3]:
+                        number = candidate_number(candidate, allow_plain_number=True)
+                        if number:
+                            return number
+        text = html_to_text(text)
+
     compact = re.sub(r'\s+', '', text).replace('－', '-').replace('−', '-').replace('—', '-')
     return extract_field(
         compact,
         [
-            r'해당공조기[^\d]{0,20}(\d+)',
-            r'공조기(?:번호)?[:\-–]?(?:공조기)?(?:AHU)?[:\-–]?(\d+)',
-            r'AHU[:\-–]?(\d+)',
+            r'해당공조기(?:공조기|AHU)[_:\-–]*([1-9]\d{0,2})(?!\d)',
+            r'(?:공조기|AHU)[_:\-–]*([1-9]\d{0,2})(?!\d)',
         ],
         default='unknown',
     )
@@ -406,7 +426,7 @@ def parse_airborne_particle(pages_text):
         i = j + 1
 
     return {
-        'ahu': extract_ahu(readable),
+        'ahu': extract_ahu(text),
         'date': extract_date(readable),
         'result': extract_result(readable),
         'rooms': rooms,
