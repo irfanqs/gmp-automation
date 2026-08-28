@@ -235,7 +235,8 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
                        cat_col_specs, data_rows_map, semesters,
                        limit_specs, limit_colors,
                        y_num_fmt=None, y_max_override=None,
-                       show_limit_labels=False, hide_limit_legend=False):
+                       show_limit_labels=False, hide_limit_legend=False,
+                       limit_refs=None):
     """
     Generic chart sheet builder.
 
@@ -309,7 +310,12 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     limit_start_col = 1 + n_cat + n_sems
 
     # ── Write VISIBLE limit columns only ──────────────────────────────────────
-    _write_limit_columns(ws, vis_specs, 1, 2, data_end_row, limit_start_col)
+    for offset, (label, value) in enumerate(vis_specs):
+        col = limit_start_col + offset
+        ws.cell(row=1, column=col, value=label)
+        cell_value = (limit_refs or {}).get(label, value)
+        for row in range(2, data_end_row + 1):
+            ws.cell(row=row, column=col, value=cell_value)
 
     # ── Multi-line X-axis labels ──────────────────────────────────────────────
     # Keep a flat category axis for compatibility, but put each hierarchy level
@@ -455,6 +461,21 @@ def create_clustered_chart(ws, data_ws, title, categories_col, values_cols, seme
 # =============================================================================
 # A. AIRBORNE PARTICLE TEST EXCEL GENERATOR
 # =============================================================================
+
+def _airborne_table_limit_columns():
+    """Return the 16 Airborne Table limit columns in the client-specified order."""
+    columns = []
+    for particle_size in ('0.5', '5.0'):
+        for grade in ('A', 'B', 'C', 'D'):
+            columns.append((
+                f'{grade} Grade 조치기준 ({particle_size}㎛)',
+                AIRBORNE_PARTICLE['action_limits'][particle_size][grade],
+            ))
+            columns.append((
+                f'{grade} Grade 경고기준 ({particle_size}㎛)',
+                AIRBORNE_PARTICLE['alert_limits'][particle_size][grade],
+            ))
+    return columns
 
 def generate_airborne_particle_excel(all_ahu_data, output_path=None):
     """
@@ -626,7 +647,9 @@ def _create_airborne_table_sheet(wb, ahu_num, ahu_semesters):
     ws = wb.create_sheet(title=f"AHU-{ahu_num} Table")
 
     # Headers (row 1)
+    limit_columns = _airborne_table_limit_columns()
     headers = ['NO', '청정 등급', '실번호', '실명', 'Average 0.5㎛', 'Average 5.0㎛', '측정일자']
+    headers += [header for header, _ in limit_columns]
     for col_idx, val in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col_idx, value=val)
         apply_cell_style(cell, font=HEADER_FONT, fill=HEADER_FILL)
@@ -648,8 +671,10 @@ def _create_airborne_table_sheet(wb, ahu_num, ahu_semesters):
             ws.cell(row=row, column=5, value=round(avg_05))
             ws.cell(row=row, column=6, value=avg_50)
             ws.cell(row=row, column=7, value=semester_label)
+            for offset, (_, value) in enumerate(limit_columns, 8):
+                ws.cell(row=row, column=offset, value=value)
 
-            for c in range(1, 8):
+            for c in range(1, len(headers) + 1):
                 apply_cell_style(ws.cell(row=row, column=c))
 
             no += 1
@@ -658,6 +683,8 @@ def _create_airborne_table_sheet(wb, ahu_num, ahu_semesters):
     widths = {'A': 6, 'B': 10, 'C': 10, 'D': 22, 'E': 16, 'F': 16, 'G': 12}
     for col, w in widths.items():
         ws.column_dimensions[col].width = w
+    for col in range(8, len(headers) + 1):
+        ws.column_dimensions[get_column_letter(col)].width = 24
 
     return ws
 
@@ -679,6 +706,7 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
             continue
         data_rows.append({'grade': grade, 'room_num': room_num, 'name': name,
                           'value': value, 'semester': semester,
+                          'table_row': r,
                           'source_refs': {
                               'grade': _cell_link_formula(table_ws, r, 2),
                               'room_num': _cell_link_formula(table_ws, r, 3),
@@ -697,14 +725,26 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
 
     alert_map  = AIRBORNE_PARTICLE['alert_limits'][ps_key]
     action_map = AIRBORNE_PARTICLE.get('action_limits', {}).get(ps_key, {})
-    limit_specs, colors = [], []
+    header_cols = {
+        table_ws.cell(row=1, column=col).value: col
+        for col in range(1, table_ws.max_column + 1)
+    }
+    limit_specs, colors, limit_refs = [], [], {}
     for g in grades_present:
         if g in alert_map:
-            limit_specs.append((f"{g} Grade 경고기준 = {alert_map[g]:,}", alert_map[g]))
+            label = f"{g} Grade 경고기준 = {alert_map[g]:,}"
+            limit_specs.append((label, alert_map[g]))
             colors.append((_LIMIT_COLORS.get(g, {}).get('alert', 'C00000'), False))
+            source_row = next(row['table_row'] for row in data_rows if row['grade'] == g)
+            source_col = header_cols[f'{g} Grade 경고기준 ({ps_key}㎛)']
+            limit_refs[label] = _cell_link_formula(table_ws, source_row, source_col)
         if g in action_map:
-            limit_specs.append((f"{g} Grade 조치기준 = {action_map[g]:,}", action_map[g]))
+            label = f"{g} Grade 조치기준 = {action_map[g]:,}"
+            limit_specs.append((label, action_map[g]))
             colors.append((_LIMIT_COLORS.get(g, {}).get('action', 'FF3300'), True))
+            source_row = next(row['table_row'] for row in data_rows if row['grade'] == g)
+            source_col = header_cols[f'{g} Grade 조치기준 ({ps_key}㎛)']
+            limit_refs[label] = _cell_link_formula(table_ws, source_row, source_col)
 
     chart_values = [row['value'] for row in data_rows if row['value'] is not None]
     chart_values.extend(value for _, value in limit_specs)
@@ -722,6 +762,7 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
         y_max_override=y_max,
         show_limit_labels=True,
         hide_limit_legend=True,
+        limit_refs=limit_refs,
     )
 
 # =============================================================================
@@ -1105,7 +1146,8 @@ def _create_ach_table_sheet(wb, ahu_num, ahu_semesters):
     """Create AHU-X Table sheet for Air Change Rate Test."""
     ws = wb.create_sheet(title=f"AHU-{ahu_num} Table")
 
-    headers = ['NO', '청정등급', '실번호', '실명', '환기횟수 (회/hr)', '측정일자']
+    headers = ['NO', '청정등급', '실번호', '실명', '환기횟수 (회/hr)',
+               '경고기준', '조치기준', '측정일자']
     for col_idx, val in enumerate(headers, 1):
         cell = ws.cell(row=4, column=col_idx, value=val)
         apply_cell_style(cell, font=HEADER_FONT, fill=HEADER_FILL)
@@ -1120,15 +1162,17 @@ def _create_ach_table_sheet(wb, ahu_num, ahu_semesters):
             ws.cell(row=row, column=3, value=int(room['room_number']) if room['room_number'].isdigit() else room['room_number'])
             ws.cell(row=row, column=4, value=room['room_name'])
             ws.cell(row=row, column=5, value=room['ach'])
-            ws.cell(row=row, column=6, value=semester_label)
+            ws.cell(row=row, column=6, value=AIR_CHANGE_RATE['alert_limits'].get(room['grade']))
+            ws.cell(row=row, column=7, value=AIR_CHANGE_RATE['action_limits'].get(room['grade']))
+            ws.cell(row=row, column=8, value=semester_label)
 
-            for c in range(1, 7):
+            for c in range(1, 9):
                 apply_cell_style(ws.cell(row=row, column=c))
 
             no += 1
             row += 1
 
-    widths = {'A': 6, 'B': 10, 'C': 10, 'D': 16, 'E': 18, 'F': 12}
+    widths = {'A': 6, 'B': 10, 'C': 10, 'D': 16, 'E': 18, 'F': 12, 'G': 12, 'H': 12}
     for col, w in widths.items():
         ws.column_dimensions[col].width = w
 
@@ -1143,11 +1187,12 @@ def _create_ach_chart_sheet(wb, ahu_num, table_ws):
         room_num = table_ws.cell(row=r, column=3).value
         name     = table_ws.cell(row=r, column=4).value
         value    = table_ws.cell(row=r, column=5).value
-        semester = table_ws.cell(row=r, column=6).value
+        semester = table_ws.cell(row=r, column=8).value
         if name is None:
             continue
         data_rows.append({'grade': grade, 'room_num': room_num, 'name': name,
                           'value': value, 'semester': semester,
+                          'table_row': r,
                           'source_refs': {
                               'grade': _cell_link_formula(table_ws, r, 2),
                               'room_num': _cell_link_formula(table_ws, r, 3),
@@ -1160,15 +1205,24 @@ def _create_ach_chart_sheet(wb, ahu_num, table_ws):
 
     alert_map  = AIR_CHANGE_RATE['alert_limits']
     action_map = AIR_CHANGE_RATE.get('action_limits', {})
-    limit_specs, colors = [], []
+    limit_specs, colors, limit_refs = [], [], {}
     for g in grades_present:
         if g in alert_map:
-            limit_specs.append((f"{g} Grade 경고기준 = {alert_map[g]} 회/hr 미만", alert_map[g]))
+            label = f"{g} Grade 경고기준 = {alert_map[g]} 회/hr 미만"
+            limit_specs.append((label, alert_map[g]))
             colors.append((_LIMIT_COLORS.get(g, {}).get('alert', 'C00000'), False))
+            source_row = next(row['table_row'] for row in data_rows if row['grade'] == g)
+            limit_refs[label] = _cell_link_formula(table_ws, source_row, 6)
         if g in action_map:
-            limit_specs.append((f"{g} Grade 조치기준 = {action_map[g]} 회/hr 미만", action_map[g]))
+            label = f"{g} Grade 조치기준 = {action_map[g]} 회/hr 미만"
+            limit_specs.append((label, action_map[g]))
             colors.append((_LIMIT_COLORS.get(g, {}).get('action', 'FF3300'), True))
+            source_row = next(row['table_row'] for row in data_rows if row['grade'] == g)
+            limit_refs[label] = _cell_link_formula(table_ws, source_row, 7)
 
+    chart_values = [row['value'] for row in data_rows if row['value'] is not None]
+    chart_values.extend(value for _, value in limit_specs)
+    y_max = _nice_y_max(max(chart_values, default=0) * 1.05)
 
     return _make_chart_sheet(
         wb,
@@ -1179,8 +1233,10 @@ def _create_ach_chart_sheet(wb, ahu_num, table_ws):
         semesters=semesters,
         limit_specs=limit_specs,
         limit_colors=colors,
+        y_max_override=y_max,
         show_limit_labels=True,
         hide_limit_legend=True,
+        limit_refs=limit_refs,
     )
 # =============================================================================
 # D. HEPA FILTER TEST EXCEL GENERATOR
@@ -1341,6 +1397,7 @@ def _create_hepa_chart_sheet(wb, ahu_num, table_ws):
             continue
         data_rows.append({'room_num': room_num, 'name': name,
                           'value': value, 'semester': semester,
+                          'table_row': r,
                           'source_refs': {
                               'room_num': _cell_link_formula(table_ws, r, 2),
                               'name': _cell_link_formula(table_ws, r, 3),
@@ -1353,6 +1410,11 @@ def _create_hepa_chart_sheet(wb, ahu_num, table_ws):
     y_max = HEPA_FILTER['chart_y_max'] if data_max <= lim else data_max * 1.2
     limit_specs = [('측정기준 = 0.01%', lim)]
     colors = [(_LIMIT_COLORS['limit'], True)]
+    limit_refs = {}
+    if data_rows:
+        limit_refs['측정기준 = 0.01%'] = _cell_link_formula(
+            table_ws, data_rows[0]['table_row'], 5
+        )
 
 
     return _make_chart_sheet(
@@ -1368,6 +1430,7 @@ def _create_hepa_chart_sheet(wb, ahu_num, table_ws):
         y_max_override=y_max,
         show_limit_labels=True,
         hide_limit_legend=True,
+        limit_refs=limit_refs,
     )
 
 # =============================================================================
