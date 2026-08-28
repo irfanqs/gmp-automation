@@ -321,7 +321,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     # The category label now has three lines (grade, room name, room number).
     # Let each category reserve enough horizontal space so Excel does not turn
     # labels into "B..." / "D..." or rotate them diagonally.
-    bar.width = max(19, min(38, n_items * 1.5))
+    bar.width = max(19, min(100, n_items * 3.2))
     bar.height = 8
     # Legend on the right so it sits in whitespace and never overlaps the plot.
     bar.legend.position = 'r'
@@ -872,7 +872,7 @@ def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
     chart.y_axis.scaling.max = AIR_VELOCITY['chart_y_max']
     chart.legend.position = 'r'
     chart.legend.overlay = False
-    chart.width = max(19, min(38, len(rows) * 1.5))
+    chart.width = max(19, min(100, len(rows) * 3.2))
     chart.height = 8
     chart.x_axis.tickLblSkip = 1
     for point in range(n_points):
