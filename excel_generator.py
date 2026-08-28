@@ -1482,8 +1482,8 @@ def _create_airflow_sheet(wb, ahu_num, ahu_semesters):
             for c in range(1, 7):
                 apply_cell_style(ws.cell(row=row, column=c))
 
-            # Set row height for wrapped text in criteria column
-            ws.row_dimensions[row].height = 45
+            # Keep the two-line criteria and longer equipment names readable.
+            ws.row_dimensions[row].height = 54
 
             no += 1
             row += 1

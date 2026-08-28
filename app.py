@@ -117,7 +117,10 @@ def process():
                 if not data.get(data_key):
                     raise ValueError(messages['empty_data'])
                 ahu_num = extract_ahu_number(data.get('ahu'), pdf_path)
-                date_str = data.get('date', '2025.08.01')
+                date_str = data.get('date')
+                if not date_str and test_type == 'airflow_pattern':
+                    date_str = data['items'][0].get('date')
+                date_str = date_str or '2025.08.01'
                 semester_label = get_semester_label(date_str)
 
                 # Organize data by AHU
