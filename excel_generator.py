@@ -9,7 +9,6 @@ from copy import copy as _copy_obj
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, LineChart, Reference
 from openpyxl.chart.data_source import MultiLevelStrRef as _MultiLevelStrRef
-from openpyxl.chart.layout import Layout, ManualLayout
 from openpyxl.utils import get_column_letter
 
 from config import (
@@ -311,25 +310,19 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
         bar.y_axis.majorGridlines = None
     except:
         pass
-    bar.height = 20
     bar.title = chart_title
     bar.x_axis.delete = False
     bar.y_axis.delete = False
     bar.type = 'col'; bar.grouping = 'clustered'
     bar.title = chart_title
-    bar.x_axis.title = "측정 위치"
-    # Place the axis title below multi-line category labels to prevent overlap.
-    bar.x_axis.title.layout = Layout(
-        manualLayout=ManualLayout(yMode='edge', y=0.98)
-    )
     # bar.y_axis.title = "측정값"
     bar.y_axis.scaling.min = 0
     bar.y_axis.scaling.max = y_max
     # The category label now has three lines (grade, room name, room number).
     # Let each category reserve enough horizontal space so Excel does not turn
     # labels into "B..." / "D..." or rotate them diagonally.
-    bar.width = max(42, min(100, n_items * 3.2))
-    bar.height = 26
+    bar.width = max(19, min(38, n_items * 1.5))
+    bar.height = 8
     # Legend on the right so it sits in whitespace and never overlaps the plot.
     bar.legend.position = 'r'
     bar.legend.overlay = False
@@ -868,13 +861,12 @@ def _create_velocity_chart_sheet(wb, ahu_num, ahu_semesters):
     chart = BarChart()
     chart.type = 'col'
     chart.grouping = 'clustered'
-    chart.title = f"AHU-{ahu_num} Air Velocity"
+    chart.title = f"AHU-{ahu_num}"
     chart.y_axis.scaling.min = 0
     chart.y_axis.scaling.max = AIR_VELOCITY['chart_y_max']
-    chart.x_axis.title = '측정 위치'
     chart.legend.position = 'r'
-    chart.width = max(42, min(100, len(rows) * 3.2))
-    chart.height = 26
+    chart.width = max(19, min(38, len(rows) * 1.5))
+    chart.height = 8
     for point in range(n_points):
         chart.add_data(Reference(ws, min_col=5 + point, min_row=1, max_row=data_end_row),
                        titles_from_data=True)
