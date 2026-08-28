@@ -74,13 +74,13 @@ def _nice_y_max(raw_max):
     return math.ceil(raw_max / magnitude) * magnitude
 
 
-def _style_limit_series(series, color_hex, is_action=False):
-    """Apply dashed colored line style to a chart series."""
+def _style_limit_series(series, color_hex, is_action=False, solid=False):
+    """Apply the requested colored line style to a chart series."""
     try:
         line = series.graphicalProperties.line
         line.solidFill = color_hex
         line.w = 19050          # 1.5 pt in EMU
-        line.prstDash = 'sysDash' if is_action else 'dash'
+        line.prstDash = 'solid' if solid else ('sysDash' if is_action else 'dash')
     except Exception:
         pass
     try:
@@ -109,9 +109,9 @@ def _write_limit_columns(ws, limit_specs, header_row, data_start_row, data_end_r
 
 def _build_linechart_for_limits(ws, limit_specs, colors, header_row,
                                  data_start_row, data_end_row, start_col,
-                                 show_labels=False):
+                                 show_labels=False, solid_lines=False):
     """
-    Create a LineChart with one dashed series per limit spec.
+    Create a LineChart with one series per limit spec.
     limit_specs: list of (label, value)
     colors:      list of (color_hex, is_action) matching limit_specs
     """
@@ -124,7 +124,7 @@ def _build_linechart_for_limits(ws, limit_specs, colors, header_row,
         ref = Reference(ws, min_col=col, min_row=header_row, max_row=data_end_row)
         line.add_data(ref, titles_from_data=True)
         s = line.series[-1]
-        _style_limit_series(s, colors[i][0], colors[i][1])
+        _style_limit_series(s, colors[i][0], colors[i][1], solid=solid_lines)
         if show_labels:
             n_points = data_end_row - data_start_row + 1
             _add_last_point_label(
@@ -236,7 +236,8 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
                        limit_specs, limit_colors,
                        y_num_fmt=None, y_max_override=None,
                        show_limit_labels=False, hide_limit_legend=False,
-                       limit_refs=None):
+                       limit_refs=None, series_label_suffix='',
+                       solid_limit_lines=False):
     """
     Generic chart sheet builder.
 
@@ -262,7 +263,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     for ci, (hdr, _) in enumerate(cat_col_specs):
         ws.cell(row=1, column=1 + ci, value=hdr)
     for si, sem in enumerate(semesters):
-        ws.cell(row=1, column=1 + n_cat + si, value=sem)
+        ws.cell(row=1, column=1 + n_cat + si, value=f'{sem}{series_label_suffix}')
 
     # ── Write data rows ───────────────────────────────────────────────────────
     for ri, cat_vals in enumerate(unique_cats):
@@ -393,6 +394,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
         line = _build_linechart_for_limits(
             ws, vis_specs, vis_colors, 1, 2, data_end_row, limit_start_col,
             show_labels=show_limit_labels,
+            solid_lines=solid_limit_lines,
         )
         if line:
             bar += line
@@ -1139,33 +1141,38 @@ def _create_ach_table_sheet(wb, ahu_num, ahu_semesters):
     """Create AHU-X Table sheet for Air Change Rate Test."""
     ws = wb.create_sheet(title=f"AHU-{ahu_num} Table")
 
-    headers = ['NO', '청정등급', '실번호', '실명', '환기횟수 (회/hr)',
-               '경고기준', '조치기준', '측정일자']
+    headers = [
+        '청정등급', '실번호', '실명', '환기횟수 (회/hr)', '측정일자',
+        'B Grade 경고기준', 'B Grade 조치기준',
+        'C Grade 경고기준', 'C Grade 조치기준',
+        'D Grade 경고기준', 'D Grade 조치기준',
+    ]
     for col_idx, val in enumerate(headers, 1):
         cell = ws.cell(row=4, column=col_idx, value=val)
         apply_cell_style(cell, font=HEADER_FONT, fill=HEADER_FILL)
 
     row = 5
-    no = 1
     for sem_data in ahu_semesters:
         semester_label = sem_data['semester']
         for room in sem_data['rooms']:
-            ws.cell(row=row, column=1, value=no)
-            ws.cell(row=row, column=2, value=room['grade'])
-            ws.cell(row=row, column=3, value=int(room['room_number']) if room['room_number'].isdigit() else room['room_number'])
-            ws.cell(row=row, column=4, value=room['room_name'])
-            ws.cell(row=row, column=5, value=room['ach'])
-            ws.cell(row=row, column=6, value=AIR_CHANGE_RATE['alert_limits'].get(room['grade']))
-            ws.cell(row=row, column=7, value=AIR_CHANGE_RATE['action_limits'].get(room['grade']))
-            ws.cell(row=row, column=8, value=semester_label)
+            ws.cell(row=row, column=1, value=room['grade'])
+            ws.cell(row=row, column=2, value=int(room['room_number']) if room['room_number'].isdigit() else room['room_number'])
+            ws.cell(row=row, column=3, value=room['room_name'])
+            ws.cell(row=row, column=4, value=room['ach'])
+            ws.cell(row=row, column=5, value=semester_label)
+            for offset, grade in enumerate(('B', 'C', 'D')):
+                ws.cell(row=row, column=6 + offset * 2, value=AIR_CHANGE_RATE['alert_limits'][grade])
+                ws.cell(row=row, column=7 + offset * 2, value=AIR_CHANGE_RATE['action_limits'][grade])
 
-            for c in range(1, 9):
+            for c in range(1, 12):
                 apply_cell_style(ws.cell(row=row, column=c))
 
-            no += 1
             row += 1
 
-    widths = {'A': 6, 'B': 10, 'C': 10, 'D': 16, 'E': 18, 'F': 12, 'G': 12, 'H': 12}
+    widths = {
+        'A': 10, 'B': 10, 'C': 16, 'D': 18, 'E': 12,
+        'F': 20, 'G': 20, 'H': 20, 'I': 20, 'J': 20, 'K': 20,
+    }
     for col, w in widths.items():
         ws.column_dimensions[col].width = w
 
@@ -1176,42 +1183,39 @@ def _create_ach_chart_sheet(wb, ahu_num, table_ws):
     """Create AHU-X Pivot chart sheet for Air Change Rate Test with limit lines."""
     data_rows = []
     for r in range(5, table_ws.max_row + 1):
-        grade    = str(table_ws.cell(row=r, column=2).value or '')
-        room_num = table_ws.cell(row=r, column=3).value
-        name     = table_ws.cell(row=r, column=4).value
-        value    = table_ws.cell(row=r, column=5).value
-        semester = table_ws.cell(row=r, column=8).value
+        grade    = str(table_ws.cell(row=r, column=1).value or '')
+        room_num = table_ws.cell(row=r, column=2).value
+        name     = table_ws.cell(row=r, column=3).value
+        value    = table_ws.cell(row=r, column=4).value
+        semester = table_ws.cell(row=r, column=5).value
         if name is None:
             continue
         data_rows.append({'grade': grade, 'room_num': room_num, 'name': name,
                           'value': value, 'semester': semester,
                           'table_row': r,
                           'source_refs': {
-                              'grade': _cell_link_formula(table_ws, r, 2),
-                              'room_num': _cell_link_formula(table_ws, r, 3),
-                              'name': _cell_link_formula(table_ws, r, 4),
+                              'grade': _cell_link_formula(table_ws, r, 1),
+                              'room_num': _cell_link_formula(table_ws, r, 2),
+                              'name': _cell_link_formula(table_ws, r, 3),
                           },
-                          'value_ref': _cell_link_formula(table_ws, r, 5)})
+                          'value_ref': _cell_link_formula(table_ws, r, 4)})
 
     semesters = sorted({d['semester'] for d in data_rows if d['semester']}, key=semester_sort_key)
-    grades_present = sorted({d['grade'] for d in data_rows if d['grade']})
-
     alert_map  = AIR_CHANGE_RATE['alert_limits']
     action_map = AIR_CHANGE_RATE.get('action_limits', {})
     limit_specs, colors, limit_refs = [], [], {}
-    for g in grades_present:
-        if g in alert_map:
-            label = f"{g} Grade 경고기준 = {alert_map[g]} 회/hr 미만"
-            limit_specs.append((label, alert_map[g]))
-            colors.append((_LIMIT_COLORS.get(g, {}).get('alert', 'C00000'), False))
-            source_row = next(row['table_row'] for row in data_rows if row['grade'] == g)
-            limit_refs[label] = _cell_link_formula(table_ws, source_row, 6)
-        if g in action_map:
-            label = f"{g} Grade 조치기준 = {action_map[g]} 회/hr 미만"
-            limit_specs.append((label, action_map[g]))
-            colors.append((_LIMIT_COLORS.get(g, {}).get('action', 'FF3300'), True))
-            source_row = next(row['table_row'] for row in data_rows if row['grade'] == g)
-            limit_refs[label] = _cell_link_formula(table_ws, source_row, 7)
+    semester_prefix = semesters[0] if semesters else ''
+    first_data_row = data_rows[0]['table_row'] if data_rows else 5
+    for grade_index, g in enumerate(('B', 'C')):
+        alert_label = f"{semester_prefix} - {g} Grade 경고기준\n= {alert_map[g]}"
+        action_label = f"{semester_prefix} - {g} Grade 조치기준\n= {action_map[g]}"
+        limit_specs.extend(((alert_label, alert_map[g]), (action_label, action_map[g])))
+        colors.extend((
+            (_LIMIT_COLORS[g]['alert'], False),
+            (_LIMIT_COLORS[g]['action'], True),
+        ))
+        limit_refs[alert_label] = _cell_link_formula(table_ws, first_data_row, 6 + grade_index * 2)
+        limit_refs[action_label] = _cell_link_formula(table_ws, first_data_row, 7 + grade_index * 2)
 
     chart_values = [row['value'] for row in data_rows if row['value'] is not None]
     chart_values.extend(value for _, value in limit_specs)
@@ -1227,8 +1231,10 @@ def _create_ach_chart_sheet(wb, ahu_num, table_ws):
         limit_specs=limit_specs,
         limit_colors=colors,
         y_max_override=y_max,
-        hide_limit_legend=True,
+        hide_limit_legend=False,
         limit_refs=limit_refs,
+        series_label_suffix=' -',
+        solid_limit_lines=True,
     )
 # =============================================================================
 # D. HEPA FILTER TEST EXCEL GENERATOR
