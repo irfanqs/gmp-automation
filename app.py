@@ -116,7 +116,11 @@ def process():
                 }[test_type]
                 if not data.get(data_key):
                     raise ValueError(messages['empty_data'])
-                ahu_num = extract_ahu_number(data.get('ahu'), pdf_path)
+                ahu_num = extract_ahu_number(
+                    data.get('ahu'),
+                    pdf_path,
+                    default='33' if test_type == 'airflow_pattern' else 'unknown',
+                )
                 date_str = data.get('date')
                 if not date_str and test_type == 'airflow_pattern':
                     date_str = data['items'][0].get('date')
