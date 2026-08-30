@@ -2,7 +2,7 @@ import os
 import re
 
 
-def extract_ahu_number(value, filename=''):
+def extract_ahu_number(value, filename='', default='unknown'):
     """Prefer an explicit filename AHU, then normalize the OCR value."""
     filename_text = re.sub(r'\s+', '', os.path.basename(filename))
     filename_match = re.search(
@@ -23,4 +23,4 @@ def extract_ahu_number(value, filename=''):
     match = re.search(r'(?:AHU|공조기)[_:\-–—−]*([1-9]\d*)', compact, re.IGNORECASE)
     if match:
         return match.group(1)
-    return 'unknown'
+    return default

@@ -21,6 +21,16 @@ class AhuNumberTest(unittest.TestCase):
         filename = '/tmp/uuid_AHU-33_hepa_filter.pdf'
         self.assertEqual(extract_ahu_number('1', filename), '33')
 
+    def test_airflow_uses_filename_before_default(self):
+        self.assertEqual(
+            extract_ahu_number('unknown', '/tmp/AHU-34_airflow.pdf', default='33'),
+            '34',
+        )
+        self.assertEqual(
+            extract_ahu_number('unknown', '/tmp/airflow.pdf', default='33'),
+            '33',
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
