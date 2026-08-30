@@ -946,16 +946,20 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
         (f"조치기준 = {AIR_VELOCITY['action_limits']['high']} m/s 초과",
          AIR_VELOCITY['action_limits']['high'], _LIMIT_COLORS['upper_action'], True),
     ]
-    headers = ['청정등급', '실번호', '실명', '측정일자']
-    headers += ['Average']
-    headers += [label for label, _, _, _ in limit_specs] + ['표시명']
-    for col, header in enumerate(headers, 1):
-        ws.cell(row=1, column=col, value=header)
-
     table_rows = [
         row for row in range(5, table_ws.max_row + 1)
         if table_ws.cell(row=row, column=4).value is not None
     ]
+    semesters = _unique_ordered(
+        table_ws.cell(row=row, column=date_col).value for row in table_rows
+    )
+    series_title = ' / '.join(str(semester) for semester in semesters if semester)
+    headers = ['청정등급', '실번호', '실명', '측정일자']
+    headers += [f'{series_title} -' if series_title else '평균']
+    headers += [label for label, _, _, _ in limit_specs] + ['표시명']
+    for col, header in enumerate(headers, 1):
+        ws.cell(row=1, column=col, value=header)
+
     for row_num, table_row in enumerate(table_rows, 2):
         ws.cell(row=row_num, column=1, value=_cell_link_formula(table_ws, table_row, 2))
         ws.cell(row=row_num, column=2, value=_cell_link_formula(table_ws, table_row, 3))
