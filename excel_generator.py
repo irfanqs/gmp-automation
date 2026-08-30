@@ -969,7 +969,10 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
         ws.cell(
             row=row_num,
             column=limit_start_col + len(limit_specs),
-            value=f'=A{row_num}&CHAR(10)&B{row_num}&CHAR(10)&C{row_num}&CHAR(10)&D{row_num}',
+            value=(
+                f'=SUBSTITUTE(C{row_num},CHAR(10)," ")&CHAR(10)&'
+                f'A{row_num}&" / "&B{row_num}'
+            ),
         )
 
     data_end_row = max(1, len(table_rows) + 1)
@@ -990,9 +993,26 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
     chart.y_axis.scaling.max = AIR_VELOCITY['chart_y_max']
     chart.legend.position = 'r'
     chart.legend.overlay = False
-    chart.width = max(19, min(100, len(table_rows) * 3.2))
-    chart.height = 15
     chart.x_axis.tickLblSkip = 1
+    chart.x_axis.noMultiLvlLbl = False
+    try:
+        from openpyxl.chart.text import RichText
+        from openpyxl.drawing.text import (
+            CharacterProperties,
+            Paragraph,
+            ParagraphProperties,
+            RichTextProperties,
+        )
+        chart.x_axis.txPr = RichText(
+            bodyPr=RichTextProperties(rot=0, vert='horz', wrap='square'),
+            p=[Paragraph(
+                pPr=ParagraphProperties(
+                    defRPr=CharacterProperties(sz=900),
+                ),
+            )],
+        )
+    except Exception:
+        pass
     chart.add_data(Reference(ws, min_col=5, min_row=1, max_row=data_end_row),
                    titles_from_data=True)
     limit_start_col = 6
@@ -1010,7 +1030,10 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
     chart += limit_chart
     _hide_limit_lines_from_legend(chart, 1, len(limit_specs))
     chart.x_axis.axPos = 'b'
-    chart.x_axis.tickLblPos = 'nextTo'
+    chart.x_axis.tickLblPos = 'low'
+    # Set the final drawing size after composing the bar and limit-line charts.
+    chart.width = max(24, min(100, len(table_rows) * 4.5))
+    chart.height = 18
     ws.add_chart(chart, f'{get_column_letter(len(headers) + 3)}1')
     return ws
 
