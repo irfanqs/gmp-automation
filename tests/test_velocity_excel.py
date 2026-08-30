@@ -36,6 +36,7 @@ class AirVelocityExcelTest(unittest.TestCase):
             workbook = load_workbook(path, data_only=False)
 
         pivot = workbook['AHU-33 Pivot']
+        self.assertEqual(pivot['E1'].value, '2025 (하) -')
         self.assertEqual(
             pivot['J2'].value,
             '=SUBSTITUTE(C2,CHAR(10)," ")&CHAR(10)&A2&" / "&B2',
