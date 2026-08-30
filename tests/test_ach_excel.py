@@ -77,6 +77,53 @@ class AirChangeRateExcelTest(unittest.TestCase):
         self.assertEqual(pivot['J2'].value, "='AHU-37 Table'!$K$5")
         self.assertEqual(len(pivot._charts[0]._charts[1].series), 6)
 
+    def test_groups_same_grade_and_room_across_semesters(self):
+        data = {
+            '33': [
+                {
+                    'semester': '2025 (하)',
+                    'date': '2025.08.02',
+                    'rooms': [{
+                        'no': 1,
+                        'grade': 'C',
+                        'room_number': '2150',
+                        'room_name': '퇴실',
+                        'volume': 50.0,
+                        'air_flow_measurements': [{'point': 1, 'air_flow': 500.0}],
+                        'total_air_flow': 500.0,
+                        'ach': 60,
+                    }],
+                },
+                {
+                    'semester': '2026 (하)',
+                    'date': '2026.08.02',
+                    'rooms': [{
+                        'no': 1,
+                        'grade': 'C',
+                        'room_number': '2150',
+                        'room_name': '되실',
+                        'volume': 50.0,
+                        'air_flow_measurements': [{'point': 1, 'air_flow': 500.0}],
+                        'total_air_flow': 500.0,
+                        'ach': 61,
+                    }],
+                },
+            ],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = os.path.join(temp_dir, 'ach.xlsx')
+            generate_air_change_rate_excel(data, path)
+            workbook = load_workbook(path, data_only=False)
+
+        pivot = workbook['AHU-33 Pivot']
+        self.assertEqual(pivot.max_row, 2)
+        self.assertEqual(pivot['D1'].value, '2026 (하) -')
+        self.assertEqual(pivot['E1'].value, '2025 (하) -')
+        self.assertEqual(pivot['D2'].value, "='AHU-33 Table'!$D$5")
+        self.assertEqual(pivot['E2'].value, "='AHU-33 Table'!$D$6")
+        self.assertEqual(len(pivot._charts[0]._charts[0].series), 2)
+
 
 if __name__ == '__main__':
     unittest.main()
