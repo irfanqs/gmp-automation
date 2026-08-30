@@ -237,12 +237,13 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
                        y_num_fmt=None, y_max_override=None,
                        show_limit_labels=False, hide_limit_legend=False,
                        limit_refs=None, series_label_suffix='',
-                       solid_limit_lines=False):
+                       solid_limit_lines=False, category_key_fields=None):
     """
     Generic chart sheet builder.
 
     cat_col_specs : list of (header, key) for category columns.
                     Last column is used as chart X-axis label.
+    category_key_fields : optional keys used to group equivalent categories.
     data_rows_map : list of dicts with keys matching cat_col_specs keys + 'semester' + 'value'
     semesters     : list of semester labels (sorted)
     limit_specs   : list of (label, value) — auto-filtered to visible range
@@ -255,8 +256,9 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
 
     # ── Unique ordered categories ─────────────────────────────────────────────
     cat_keys = [k for _, k in cat_col_specs]
-    unique_cats = _unique_ordered(
-        tuple(row[k] for k in cat_keys) for row in data_rows_map
+    identity_keys = category_key_fields or cat_keys
+    unique_cat_ids = _unique_ordered(
+        tuple(row[k] for k in identity_keys) for row in data_rows_map
     )
 
     # ── Write header row ──────────────────────────────────────────────────────
@@ -266,21 +268,21 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
         ws.cell(row=1, column=1 + n_cat + si, value=f'{sem}{series_label_suffix}')
 
     # ── Write data rows ───────────────────────────────────────────────────────
-    for ri, cat_vals in enumerate(unique_cats):
+    for ri, cat_id in enumerate(unique_cat_ids):
         row = 2 + ri
         source_row = next(
             (item for item in data_rows_map
-             if all(item[k] == cat_vals[ki] for ki, (_, k) in enumerate(cat_col_specs))),
+             if all(item[k] == cat_id[ki] for ki, k in enumerate(identity_keys))),
             None,
         )
-        for ci, val in enumerate(cat_vals):
-            key = cat_col_specs[ci][1]
+        for ci, (_, key) in enumerate(cat_col_specs):
+            val = (source_row or {}).get(key)
             source_ref = (source_row or {}).get('source_refs', {}).get(key)
             ws.cell(row=row, column=1 + ci, value=source_ref or val)
         for si, sem in enumerate(semesters):
             matched_row = next(
                 (item for item in data_rows_map
-                 if all(item[k] == cat_vals[ki] for ki, (_, k) in enumerate(cat_col_specs))
+                 if all(item[k] == cat_id[ki] for ki, k in enumerate(identity_keys))
                  and item['semester'] == sem),
                 None
             )
@@ -290,7 +292,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
             if y_num_fmt and matched_row is not None:
                 cell.number_format = y_num_fmt
 
-    n_items = len(unique_cats)
+    n_items = len(unique_cat_ids)
     data_end_row = 1 + n_items
 
     # ── Auto-scale: compute y_max from data, filter visible limits ────────────
@@ -1262,6 +1264,7 @@ def _create_ach_chart_sheet(wb, ahu_num, table_ws):
         limit_refs=limit_refs,
         series_label_suffix=' -',
         solid_limit_lines=True,
+        category_key_fields=('grade', 'room_num'),
     )
 # =============================================================================
 # D. HEPA FILTER TEST EXCEL GENERATOR
