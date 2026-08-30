@@ -61,16 +61,21 @@ class AirChangeRateExcelTest(unittest.TestCase):
         pivot = workbook['AHU-37 Pivot']
         self.assertEqual(pivot['D1'].value, '2025 (하) -')
         self.assertEqual(
-            [pivot.cell(1, col).value for col in range(5, 9)],
+            [pivot.cell(1, col).value for col in range(5, 11)],
             [
                 '2025 (하) - B Grade 경고기준\n= 52',
                 '2025 (하) - B Grade 조치기준\n= 50',
                 '2025 (하) - C Grade 경고기준\n= 22',
                 '2025 (하) - C Grade 조치기준\n= 20',
+                '2025 (하) - D Grade 경고기준\n= 12',
+                '2025 (하) - D Grade 조치기준\n= 10',
             ],
         )
         self.assertEqual(pivot['E2'].value, "='AHU-37 Table'!$F$5")
         self.assertEqual(pivot['H2'].value, "='AHU-37 Table'!$I$5")
+        self.assertEqual(pivot['I2'].value, "='AHU-37 Table'!$J$5")
+        self.assertEqual(pivot['J2'].value, "='AHU-37 Table'!$K$5")
+        self.assertEqual(len(pivot._charts[0]._charts[1].series), 6)
 
 
 if __name__ == '__main__':
