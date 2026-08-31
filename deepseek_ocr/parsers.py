@@ -229,17 +229,23 @@ def extract_ahu(text):
     def candidate_number(value, allow_plain_number=False):
         compact_value = re.sub(r'\s+', '', str(value or ''))
         compact_value = compact_value.replace('－', '-').replace('−', '-').replace('—', '-')
-        patterns = [r'(?:공조기|AHU)[_:\-–]*([1-9]\d{0,2})(?!\d)']
+        patterns = [
+            r'(?:공조기|AHU)[_:\-|–]*'
+            r'(?:(?:NO\.?)|번호|#)?[_:\-|–]*([1-9]\d{0,2})(?!\d)'
+        ]
         if allow_plain_number:
-            patterns.append(r'^([1-9]\d{0,2})$')
+            patterns.append(r'^([1-9]\d{0,2})(?:호기?)?$')
         return extract_field(compact_value, patterns)
 
     if '<table' in text.lower():
         for table in extract_tables(text):
             for row_index, row in enumerate(table):
                 for index, cell in enumerate(row):
-                    label = re.sub(r'[\s:|]+', '', str(cell))
-                    if not (label.startswith('해당공조기') or label == 'AHU'):
+                    label = re.sub(r'[\s:|._\-]+', '', str(cell)).upper()
+                    if not (
+                        label.startswith('해당공조기')
+                        or label in ('공조기', '공조기번호', 'AHU', 'AHUNO', '해당AHU')
+                    ):
                         continue
                     candidates = list(row[index + 1:index + 3])
                     candidates.extend(
@@ -253,15 +259,7 @@ def extract_ahu(text):
                             return number
         text = html_to_text(text)
 
-    compact = re.sub(r'\s+', '', text).replace('－', '-').replace('−', '-').replace('—', '-')
-    return extract_field(
-        compact,
-        [
-            r'해당공조기(?:공조기|AHU)[_:\-–]*([1-9]\d{0,2})(?!\d)',
-            r'(?:공조기|AHU)[_:\-–]+([1-9]\d{0,2})(?!\d)',
-        ],
-        default='unknown',
-    )
+    return candidate_number(text) or 'unknown'
 
 
 def extract_date(text):
