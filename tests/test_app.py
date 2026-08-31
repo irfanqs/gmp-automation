@@ -1,9 +1,22 @@
 import unittest
 
-from ahu_utils import ahu_sort_key, extract_ahu_number
+from ahu_utils import ahu_sort_key, default_ahu_for_test, extract_ahu_number
 
 
 class AhuNumberTest(unittest.TestCase):
+    def test_airborne_and_airflow_default_to_ahu_33(self):
+        self.assertEqual(default_ahu_for_test('airborne_particle'), '33')
+        self.assertEqual(default_ahu_for_test('airflow_pattern'), '33')
+        self.assertEqual(default_ahu_for_test('air_velocity'), 'unknown')
+        self.assertEqual(
+            extract_ahu_number(
+                'unknown',
+                '/tmp/airborne.pdf',
+                default=default_ahu_for_test('airborne_particle'),
+            ),
+            '33',
+        )
+
     def test_sorts_numeric_and_text_ahu_values(self):
         self.assertEqual(
             sorted(['unknown', '37', '5'], key=ahu_sort_key),

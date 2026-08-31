@@ -9,7 +9,7 @@ import uuid
 import traceback
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from werkzeug.utils import secure_filename
-from ahu_utils import ahu_sort_key, extract_ahu_number
+from ahu_utils import ahu_sort_key, default_ahu_for_test, extract_ahu_number
 from config import UPLOAD_FOLDER, OUTPUT_FOLDER, get_semester_label, TEST_TYPES
 from deepseek_ocr.engine import EXTRACTORS as DEEPSEEK_EXTRACTORS
 from excel_generator import GENERATORS
@@ -112,7 +112,7 @@ def process():
                 ahu_num = extract_ahu_number(
                     data.get('ahu'),
                     pdf_path,
-                    default='33' if test_type == 'airflow_pattern' else 'unknown',
+                    default=default_ahu_for_test(test_type),
                 )
                 date_str = data.get('date')
                 if not date_str and test_type == 'airflow_pattern':
