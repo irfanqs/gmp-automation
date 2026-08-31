@@ -7,6 +7,11 @@ _DEFAULT_AHU_BY_TEST = {
     'airflow_pattern': '33',
 }
 
+_AHU_NUMBER_PATTERN = (
+    r'(?:AHU|공조기)[_:\-|–—−]*'
+    r'(?:(?:NO\.?)|번호|#)?[_:\-|–—−]*([1-9]\d*)'
+)
+
 
 def default_ahu_for_test(test_type):
     """Return the agreed fallback when a document has no readable AHU."""
@@ -25,7 +30,7 @@ def extract_ahu_number(value, filename='', default='unknown'):
     """Prefer an explicit filename AHU, then normalize the OCR value."""
     filename_text = re.sub(r'\s+', '', os.path.basename(filename))
     filename_match = re.search(
-        r'(?:AHU|공조기)[_:\-–—−]*([1-9]\d*)',
+        _AHU_NUMBER_PATTERN,
         filename_text,
         re.IGNORECASE,
     )
@@ -39,7 +44,7 @@ def extract_ahu_number(value, filename='', default='unknown'):
             return str(number)
 
     compact = re.sub(r'\s+', '', value_text)
-    match = re.search(r'(?:AHU|공조기)[_:\-–—−]*([1-9]\d*)', compact, re.IGNORECASE)
+    match = re.search(_AHU_NUMBER_PATTERN, compact, re.IGNORECASE)
     if match:
         return match.group(1)
     return default

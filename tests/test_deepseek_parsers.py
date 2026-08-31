@@ -92,6 +92,12 @@ class AhuMetadataParserTest(unittest.TestCase):
         self.assertEqual(extract_ahu(horizontal), '33')
         self.assertEqual(extract_ahu(vertical), '33')
 
+    def test_reads_ahu_number_label_variants(self):
+        numbered = '<table><tr><td>공조기 번호</td><td>33호기</td></tr></table>'
+        english = '<table><tr><td>AHU No.</td><td>34</td></tr></table>'
+        self.assertEqual(extract_ahu(numbered), '33')
+        self.assertEqual(extract_ahu(english), '34')
+
     def test_does_not_use_measurement_number_when_ahu_is_blank(self):
         page = """
         <table>
