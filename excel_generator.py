@@ -1282,11 +1282,10 @@ def _create_ach_chart_sheet(wb, ahu_num, table_ws):
     alert_map  = AIR_CHANGE_RATE['alert_limits']
     action_map = AIR_CHANGE_RATE.get('action_limits', {})
     limit_specs, colors, limit_refs = [], [], {}
-    semester_prefix = semesters[0] if semesters else ''
     first_data_row = data_rows[0]['table_row'] if data_rows else 5
     for grade_index, g in enumerate(('B', 'C', 'D')):
-        alert_label = f"{semester_prefix} - {g} Grade 경고기준\n= {alert_map[g]}"
-        action_label = f"{semester_prefix} - {g} Grade 조치기준\n= {action_map[g]}"
+        alert_label = f"{g} Grade 경고기준\n= {alert_map[g]}"
+        action_label = f"{g} Grade 조치기준\n= {action_map[g]}"
         limit_specs.extend(((alert_label, alert_map[g]), (action_label, action_map[g])))
         colors.extend((
             (_LIMIT_COLORS[g]['alert'], False),
