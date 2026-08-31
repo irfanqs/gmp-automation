@@ -1,9 +1,15 @@
 import unittest
 
-from ahu_utils import extract_ahu_number
+from ahu_utils import ahu_sort_key, extract_ahu_number
 
 
 class AhuNumberTest(unittest.TestCase):
+    def test_sorts_numeric_and_text_ahu_values(self):
+        self.assertEqual(
+            sorted(['unknown', '37', '5'], key=ahu_sort_key),
+            ['5', '37', 'unknown'],
+        )
+
     def test_normalizes_ocr_value(self):
         self.assertEqual(extract_ahu_number('공 조 기 - 37'), '37')
         self.assertEqual(extract_ahu_number('AHU-42'), '42')
