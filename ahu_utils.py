@@ -2,6 +2,17 @@ import os
 import re
 
 
+_DEFAULT_AHU_BY_TEST = {
+    'airborne_particle': '33',
+    'airflow_pattern': '33',
+}
+
+
+def default_ahu_for_test(test_type):
+    """Return the agreed fallback when a document has no readable AHU."""
+    return _DEFAULT_AHU_BY_TEST.get(test_type, 'unknown')
+
+
 def ahu_sort_key(value):
     """Sort numeric AHUs first without comparing integers and strings."""
     text = str(value).strip()
