@@ -193,6 +193,29 @@ def _set_str_categories(chart, ws, label_col, data_end_row):
     for s in chart.series:
         s.cat = cat
 
+
+def _set_horizontal_axis_labels(axis, font_size=900):
+    """Keep long category labels horizontal and readable in Excel."""
+    try:
+        from openpyxl.chart.text import RichText
+        from openpyxl.drawing.text import (
+            CharacterProperties,
+            Paragraph,
+            ParagraphProperties,
+            RichTextProperties,
+        )
+        axis.txPr = RichText(
+            bodyPr=RichTextProperties(rot=0, vert='horz', wrap='square'),
+            p=[Paragraph(
+                pPr=ParagraphProperties(
+                    defRPr=CharacterProperties(sz=font_size),
+                ),
+            )],
+        )
+    except Exception:
+        pass
+
+
 def _add_last_point_label(series, n_points, position='r', point_index=None):
     """Show the series name at one data point and the requested position."""
     try:
@@ -239,7 +262,8 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
                        y_num_fmt=None, y_max_override=None,
                        show_limit_labels=False, hide_limit_legend=False,
                        limit_refs=None, series_label_suffix='',
-                       solid_limit_lines=False, category_key_fields=None):
+                       solid_limit_lines=False, category_key_fields=None,
+                       readable_x_labels=False):
     """
     Generic chart sheet builder.
 
@@ -363,16 +387,23 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     # The category label now has three lines (grade, room name, room number).
     # Let each category reserve enough horizontal space so Excel does not turn
     # labels into "B..." / "D..." or rotate them diagonally.
-    bar.width = max(19, min(100, n_items * 3.2))
-    bar.height = 15
+    if readable_x_labels:
+        bar.width = max(24, min(100, n_items * 4.5))
+        bar.height = 18
+    else:
+        bar.width = max(19, min(100, n_items * 3.2))
+        bar.height = 15
     # Legend on the right so it sits in whitespace and never overlaps the plot.
     bar.legend.position = 'r'
     bar.legend.overlay = False
 
-    try:
-        bar.x_axis.txPr = None
-    except:
-        pass
+    if readable_x_labels:
+        _set_horizontal_axis_labels(bar.x_axis)
+    else:
+        try:
+            bar.x_axis.txPr = None
+        except Exception:
+            pass
 
     bar.x_axis.tickLblSkip = 1
 
@@ -406,7 +437,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
                 _hide_limit_lines_from_legend(bar, n_sems, len(vis_specs))
 
     bar.x_axis.axPos = "b"
-    bar.x_axis.tickLblPos = "nextTo"
+    bar.x_axis.tickLblPos = 'low' if readable_x_labels else 'nextTo'
 
     # ── Anchor chart to the right of the table ────────────────────────────────
     chart_col = get_column_letter(label_col + 3)
@@ -768,6 +799,7 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
         y_max_override=y_max,
         hide_limit_legend=True,
         limit_refs=limit_refs,
+        readable_x_labels=True,
     )
 
 # =============================================================================
@@ -1043,24 +1075,7 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
     chart.legend.overlay = False
     chart.x_axis.tickLblSkip = 1
     chart.x_axis.noMultiLvlLbl = False
-    try:
-        from openpyxl.chart.text import RichText
-        from openpyxl.drawing.text import (
-            CharacterProperties,
-            Paragraph,
-            ParagraphProperties,
-            RichTextProperties,
-        )
-        chart.x_axis.txPr = RichText(
-            bodyPr=RichTextProperties(rot=0, vert='horz', wrap='square'),
-            p=[Paragraph(
-                pPr=ParagraphProperties(
-                    defRPr=CharacterProperties(sz=900),
-                ),
-            )],
-        )
-    except Exception:
-        pass
+    _set_horizontal_axis_labels(chart.x_axis)
     for semester_offset in range(len(semesters)):
         chart.add_data(
             Reference(
