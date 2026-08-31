@@ -119,7 +119,8 @@ IMPORTANT RULES:
 - "value_50" is the 5.0 µm measurement value (integer)
 - Group measurements by room (same room_number + room_name = same room object)
 - Include ALL pages of data
-- Read AHU ONLY from the top 해당 공조기 field (e.g., 공조기-33 means "33")
+- Inspect the metadata section on every page and read AHU ONLY from the 해당 공조기 field.
+- The AHU value may be beside or below the label and may appear as 공조기-33, 공조기 번호 33, 공조기 No. 33, AHU No. 33, or a bare 33 in the value cell. Return only "33".
 - Never infer AHU from NO, 측정번호, particle sizes such as 0.5 µm, or measurement values; return "unknown" if unreadable
 - Return ONLY the JSON, no markdown, no explanation"""
 
