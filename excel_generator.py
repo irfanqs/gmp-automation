@@ -5,6 +5,7 @@ Generates formatted Excel files for all 5 test types.
 
 import os
 import math
+import re
 from copy import copy as _copy_obj
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, LineChart, Reference
@@ -927,6 +928,18 @@ def _create_velocity_table_sheet(wb, ahu_num, ahu_semesters):
     return ws
 
 
+def _velocity_equipment_key(name):
+    """Return a stable equipment identity while preserving distinct room assets."""
+    text = str(name or '')
+    qha_match = re.search(r'QHA\s*[-–—]?\s*(\d+)', text, re.IGNORECASE)
+    if qha_match:
+        return f'QHA-{qha_match.group(1)}'
+    asset_ids = re.findall(r'(?<!\d)(\d{4,})(?!\d)', text)
+    if asset_ids:
+        return f'ASSET-{asset_ids[-1]}'
+    return re.sub(r'[\W_]+', '', text.casefold())
+
+
 def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
     """Create an Average chart linked to the four Table measurement points."""
     _enable_auto_calculation(wb)
@@ -949,28 +962,56 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
         (f"조치기준 = {AIR_VELOCITY['action_limits']['high']} m/s 초과",
          AIR_VELOCITY['action_limits']['high'], _LIMIT_COLORS['upper_action'], True),
     ]
-    table_rows = [
-        row for row in range(5, table_ws.max_row + 1)
-        if table_ws.cell(row=row, column=4).value is not None
-    ]
-    semesters = _unique_ordered(
-        table_ws.cell(row=row, column=date_col).value for row in table_rows
+    data_rows = []
+    for table_row in range(5, table_ws.max_row + 1):
+        name = table_ws.cell(row=table_row, column=4).value
+        if name is None:
+            continue
+        data_rows.append({
+            'grade': table_ws.cell(row=table_row, column=2).value,
+            'room_num': table_ws.cell(row=table_row, column=3).value,
+            'name': name,
+            'equipment_key': _velocity_equipment_key(name),
+            'semester': table_ws.cell(row=table_row, column=date_col).value,
+            'table_row': table_row,
+        })
+
+    semesters = _unique_ordered(row['semester'] for row in data_rows if row['semester'])
+    category_keys = _unique_ordered(
+        (row['grade'], row['room_num'], row['equipment_key']) for row in data_rows
     )
-    series_title = ' / '.join(str(semester) for semester in semesters if semester)
-    headers = ['청정등급', '실번호', '실명', '측정일자']
-    headers += [f'{series_title} -' if series_title else '평균']
+    headers = ['청정등급', '실번호', '실명']
+    headers += [f'{semester} -' for semester in semesters]
     headers += [label for label, _, _, _ in limit_specs] + ['표시명']
     for col, header in enumerate(headers, 1):
         ws.cell(row=1, column=col, value=header)
 
-    for row_num, table_row in enumerate(table_rows, 2):
-        ws.cell(row=row_num, column=1, value=_cell_link_formula(table_ws, table_row, 2))
-        ws.cell(row=row_num, column=2, value=_cell_link_formula(table_ws, table_row, 3))
-        ws.cell(row=row_num, column=3, value=_cell_link_formula(table_ws, table_row, 4))
-        ws.cell(row=row_num, column=4, value=_cell_link_formula(table_ws, table_row, date_col))
-        ws.cell(row=row_num, column=5,
-                value=_cell_link_formula(table_ws, table_row, average_col))
-        limit_start_col = 6
+    series_start_col = 4
+    limit_start_col = series_start_col + len(semesters)
+    for row_num, category_key in enumerate(category_keys, 2):
+        source = next(
+            row for row in data_rows
+            if (row['grade'], row['room_num'], row['equipment_key']) == category_key
+        )
+        source_row = source['table_row']
+        ws.cell(row=row_num, column=1, value=_cell_link_formula(table_ws, source_row, 2))
+        ws.cell(row=row_num, column=2, value=_cell_link_formula(table_ws, source_row, 3))
+        ws.cell(row=row_num, column=3, value=_cell_link_formula(table_ws, source_row, 4))
+        for semester_offset, semester in enumerate(semesters):
+            matched = next(
+                (
+                    row for row in data_rows
+                    if (row['grade'], row['room_num'], row['equipment_key']) == category_key
+                    and row['semester'] == semester
+                ),
+                None,
+            )
+            if matched:
+                ws.cell(
+                    row=row_num,
+                    column=series_start_col + semester_offset,
+                    value=_cell_link_formula(table_ws, matched['table_row'], average_col),
+                )
         for offset, (_, value, _, _) in enumerate(limit_specs):
             ws.cell(row=row_num, column=limit_start_col + offset, value=value)
         ws.cell(
@@ -982,7 +1023,7 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
             ),
         )
 
-    data_end_row = max(1, len(table_rows) + 1)
+    data_end_row = max(1, len(category_keys) + 1)
     for col in range(1, len(headers) + 1):
         ws.column_dimensions[get_column_letter(col)].width = 14 if col >= 4 else 22
 
@@ -1020,9 +1061,16 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
         )
     except Exception:
         pass
-    chart.add_data(Reference(ws, min_col=5, min_row=1, max_row=data_end_row),
-                   titles_from_data=True)
-    limit_start_col = 6
+    for semester_offset in range(len(semesters)):
+        chart.add_data(
+            Reference(
+                ws,
+                min_col=series_start_col + semester_offset,
+                min_row=1,
+                max_row=data_end_row,
+            ),
+            titles_from_data=True,
+        )
     categories_col = limit_start_col + len(limit_specs)
     chart.set_categories(Reference(ws, min_col=categories_col, min_row=2, max_row=data_end_row))
 
@@ -1035,11 +1083,11 @@ def _create_velocity_chart_sheet(wb, ahu_num, table_ws):
         series = limit_chart.series[-1]
         _style_limit_series(series, color, is_action)
     chart += limit_chart
-    _hide_limit_lines_from_legend(chart, 1, len(limit_specs))
+    _hide_limit_lines_from_legend(chart, len(semesters), len(limit_specs))
     chart.x_axis.axPos = 'b'
     chart.x_axis.tickLblPos = 'low'
     # Set the final drawing size after composing the bar and limit-line charts.
-    chart.width = max(24, min(100, len(table_rows) * 4.5))
+    chart.width = max(24, min(100, len(category_keys) * 4.5))
     chart.height = 18
     ws.add_chart(chart, f'{get_column_letter(len(headers) + 3)}1')
     return ws
