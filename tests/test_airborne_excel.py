@@ -84,6 +84,13 @@ class AirborneParticleExcelTest(unittest.TestCase):
         self.assertEqual(sheet['F21'].value, 30760)
         self.assertEqual(sheet['H21'].value, 1340)
         self.assertEqual(sheet['D37'].value, '균주접종실 BSC')
+        for chart_sheet_name in ('AHU-37 0.5', 'AHU-37 5.0'):
+            chart = workbook[chart_sheet_name]._charts[0]
+            self.assertEqual(chart.x_axis.tickLblPos, 'low')
+            self.assertEqual(chart.x_axis.txPr.bodyPr.rot, 0)
+            self.assertEqual(chart.x_axis.txPr.p[0].pPr.defRPr.sz, 900)
+            self.assertEqual(chart.anchor.ext.height, 18 * 360000)
+            self.assertEqual(chart.anchor.ext.width, 49.5 * 360000)
 
 
 if __name__ == '__main__':
