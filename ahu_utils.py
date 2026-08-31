@@ -2,6 +2,14 @@ import os
 import re
 
 
+def ahu_sort_key(value):
+    """Sort numeric AHUs first without comparing integers and strings."""
+    text = str(value).strip()
+    if text.isdigit():
+        return 0, int(text)
+    return 1, text.casefold()
+
+
 def extract_ahu_number(value, filename='', default='unknown'):
     """Prefer an explicit filename AHU, then normalize the OCR value."""
     filename_text = re.sub(r'\s+', '', os.path.basename(filename))

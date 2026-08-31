@@ -8,6 +8,32 @@ from excel_generator import generate_airborne_particle_excel
 
 
 class AirborneParticleExcelTest(unittest.TestCase):
+    def test_generates_workbook_with_numeric_and_unknown_ahu_keys(self):
+        room = {
+            'no_start': 1,
+            'no_end': 1,
+            'grade': 'B',
+            'room_number': '2142',
+            'room_name': '무균 실험실',
+            'measurements': [{'point': 1, 'value_05': 121, 'value_50': 7}],
+        }
+        semester = {
+            'semester': '2025 (하)',
+            'date': '2025.08.02',
+            'rooms': [room],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = os.path.join(temp_dir, 'airborne.xlsx')
+            generate_airborne_particle_excel(
+                {'unknown': [semester.copy()], '33': [semester.copy()]},
+                path,
+            )
+            workbook = load_workbook(path, data_only=False)
+
+        self.assertEqual(workbook.sheetnames[0], 'AHU-33 Data')
+        self.assertIn('AHU-unknown Data', workbook.sheetnames)
+
     def test_writes_all_rooms_and_30_measurement_points(self):
         source_rooms = [
             ('B', '2142', '무균 실험실', [(121, 7), (194, 0), (676, 9), (576, 9), (107, 1), (121, 4)]),
