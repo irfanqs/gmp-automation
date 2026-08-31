@@ -9,7 +9,7 @@ import uuid
 import traceback
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from werkzeug.utils import secure_filename
-from ahu_utils import extract_ahu_number
+from ahu_utils import ahu_sort_key, extract_ahu_number
 from config import UPLOAD_FOLDER, OUTPUT_FOLDER, get_semester_label, TEST_TYPES
 from deepseek_ocr.engine import EXTRACTORS as DEEPSEEK_EXTRACTORS
 from excel_generator import GENERATORS
@@ -169,7 +169,7 @@ def process():
             'filename': output_filename,
             'download_url': f'/download/{output_filename}',
             'ahu_count': len(all_ahu_data),
-            'ahu_list': sorted(all_ahu_data.keys(), key=lambda x: int(x) if x.isdigit() else x),
+            'ahu_list': sorted(all_ahu_data.keys(), key=ahu_sort_key),
         }
 
         if errors:

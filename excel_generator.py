@@ -11,6 +11,7 @@ from openpyxl.chart import BarChart, LineChart, Reference
 from openpyxl.chart.data_source import MultiLevelStrRef as _MultiLevelStrRef
 from openpyxl.utils import get_column_letter
 
+from ahu_utils import ahu_sort_key
 from config import (
     AIRBORNE_PARTICLE, AIR_VELOCITY, AIR_CHANGE_RATE, HEPA_FILTER, AIRFLOW_PATTERN,
     ALERT_FILL_RED, HEADER_FILL, WHITE_FILL,
@@ -505,7 +506,7 @@ def generate_airborne_particle_excel(all_ahu_data, output_path=None):
         output_path = os.path.join(OUTPUT_FOLDER, AIRBORNE_PARTICLE['excel_filename'])
     wb = Workbook()
     wb.remove(wb.active)
-    for ahu_num in sorted(all_ahu_data.keys(), key=lambda x: int(x) if x.isdigit() else x):
+    for ahu_num in sorted(all_ahu_data.keys(), key=ahu_sort_key):
         ahu_semesters = all_ahu_data[ahu_num]
         ahu_semesters.sort(key=lambda s: semester_sort_key(s['semester']))
         _create_airborne_data_sheet(wb, ahu_num, ahu_semesters)
@@ -778,7 +779,7 @@ def generate_air_velocity_excel(all_ahu_data, output_path=None):
         output_path = os.path.join(OUTPUT_FOLDER, AIR_VELOCITY['excel_filename'])
     wb = Workbook()
     wb.remove(wb.active)
-    for ahu_num in sorted(all_ahu_data.keys(), key=lambda x: int(x) if x.isdigit() else x):
+    for ahu_num in sorted(all_ahu_data.keys(), key=ahu_sort_key):
         ahu_semesters = all_ahu_data[ahu_num]
         ahu_semesters.sort(key=lambda s: semester_sort_key(s['semester']))
         _create_velocity_data_sheet(wb, ahu_num, ahu_semesters)
@@ -1054,7 +1055,7 @@ def generate_air_change_rate_excel(all_ahu_data, output_path=None):
         output_path = os.path.join(OUTPUT_FOLDER, AIR_CHANGE_RATE['excel_filename'])
     wb = Workbook()
     wb.remove(wb.active)
-    for ahu_num in sorted(all_ahu_data.keys(), key=lambda x: int(x) if x.isdigit() else x):
+    for ahu_num in sorted(all_ahu_data.keys(), key=ahu_sort_key):
         ahu_semesters = all_ahu_data[ahu_num]
         ahu_semesters.sort(key=lambda s: semester_sort_key(s['semester']))
         _create_ach_data_sheet(wb, ahu_num, ahu_semesters)
@@ -1276,7 +1277,7 @@ def generate_hepa_filter_excel(all_ahu_data, output_path=None):
         output_path = os.path.join(OUTPUT_FOLDER, HEPA_FILTER['excel_filename'])
     wb = Workbook()
     wb.remove(wb.active)
-    for ahu_num in sorted(all_ahu_data.keys(), key=lambda x: int(x) if x.isdigit() else x):
+    for ahu_num in sorted(all_ahu_data.keys(), key=ahu_sort_key):
         ahu_semesters = all_ahu_data[ahu_num]
         ahu_semesters.sort(key=lambda s: semester_sort_key(s['semester']))
         _create_hepa_data_sheet(wb, ahu_num, ahu_semesters)
@@ -1469,7 +1470,7 @@ def generate_airflow_pattern_excel(all_ahu_data, output_path=None):
     wb = Workbook()
     wb.remove(wb.active)
 
-    for ahu_num in sorted(all_ahu_data.keys(), key=lambda x: int(x) if x.isdigit() else x):
+    for ahu_num in sorted(all_ahu_data.keys(), key=ahu_sort_key):
         ahu_semesters = all_ahu_data[ahu_num]
         ahu_semesters.sort(key=lambda s: semester_sort_key(s['semester']))
         _create_airflow_sheet(wb, ahu_num, ahu_semesters)
