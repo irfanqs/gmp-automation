@@ -63,12 +63,12 @@ class AirChangeRateExcelTest(unittest.TestCase):
         self.assertEqual(
             [pivot.cell(1, col).value for col in range(5, 11)],
             [
-                '2025 (하) - B Grade 경고기준\n= 52',
-                '2025 (하) - B Grade 조치기준\n= 50',
-                '2025 (하) - C Grade 경고기준\n= 22',
-                '2025 (하) - C Grade 조치기준\n= 20',
-                '2025 (하) - D Grade 경고기준\n= 12',
-                '2025 (하) - D Grade 조치기준\n= 10',
+                'B Grade 경고기준\n= 52',
+                'B Grade 조치기준\n= 50',
+                'C Grade 경고기준\n= 22',
+                'C Grade 조치기준\n= 20',
+                'D Grade 경고기준\n= 12',
+                'D Grade 조치기준\n= 10',
             ],
         )
         self.assertEqual(pivot['E2'].value, "='AHU-37 Table'!$F$5")
@@ -120,6 +120,7 @@ class AirChangeRateExcelTest(unittest.TestCase):
         self.assertEqual(pivot.max_row, 2)
         self.assertEqual(pivot['D1'].value, '2026 (하) -')
         self.assertEqual(pivot['E1'].value, '2025 (하) -')
+        self.assertEqual(pivot['F1'].value, 'B Grade 경고기준\n= 52')
         self.assertEqual(pivot['D2'].value, "='AHU-33 Table'!$D$5")
         self.assertEqual(pivot['E2'].value, "='AHU-33 Table'!$D$6")
         self.assertEqual(len(pivot._charts[0]._charts[0].series), 2)
