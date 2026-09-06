@@ -5,10 +5,12 @@ Uses Anthropic Claude API to extract structured data from scanned PDF images.
 
 import base64
 import json
+import re
 import requests
 import os
 from pdf2image import convert_from_path
 from io import BytesIO
+from PIL import ImageEnhance, ImageFilter
 from config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL, ANTHROPIC_API_URL
 
 
@@ -25,14 +27,16 @@ def image_to_base64(pil_image):
     return base64.standard_b64encode(buffer.getvalue()).decode('utf-8')
 
 
-def call_claude_api(images_b64, prompt, api_key=None):
+def call_claude_api(images_b64, prompt, api_key=None, image_descriptions=None):
     """Call Claude API with images and a prompt. Returns parsed JSON."""
     key = api_key or ANTHROPIC_API_KEY
     if not key:
         raise ValueError("Anthropic API key is required. Set ANTHROPIC_API_KEY in the server environment.")
 
     content = []
-    for img_b64 in images_b64:
+    for index, img_b64 in enumerate(images_b64):
+        if image_descriptions:
+            content.append({"type": "text", "text": image_descriptions[index]})
         content.append({
             "type": "image",
             "source": {
@@ -241,35 +245,102 @@ IMPORTANT RULES:
 - Return ONLY the JSON, no markdown, no explanation"""
 
 
-PROMPT_AIRFLOW_PATTERN = """You are analyzing scanned Korean GMP documents: 기류패턴시험 기록서 (Airflow Pattern Test Records).
+PROMPT_GAS_AIRBORNE_PARTICLE = """You are analyzing a scanned Korean GMP gas quality document: 부유입자 측정 일지 (Airborne Particle for Gas Quality Verification Test).
 
-Each page is a separate test for one equipment/room. Extract ALL data from ALL pages and return ONLY valid JSON (no other text) with this exact structure:
+Extract ALL numbered measurement rows and return ONLY valid JSON (no other text) with this exact structure:
 
 {
-  "ahu": "unknown unless an explicit AHU field is visible in the document",
-  "items": [
+  "records": [
     {
-      "name": "무균시험실 BSC",
-      "date": "2025.08.02",
-      "criteria": "1. 육안상 단일방향류가 형성되어야 함\\n2. 측정대상 크린장비 내부에 난류가 형성되는 구역이 없어야 함",
-      "video_attached": "첨부",
-      "judgment": "적합"
+      "no": "1",
+      "management_number": "CA-01",
+      "location": "충전 3실 (2505)",
+      "grade": "B",
+      "particle_05": 13,
+      "particle_50": 0,
+      "judgement": "적합",
+      "criteria_text": "the printed 허용기준 text",
+      "performed_date": "2025.08.28"
     }
   ]
 }
 
 IMPORTANT RULES:
-- Each page represents one equipment/room test
-- "name" is from 측정대상 field (the equipment/room name)
-- "name" must contain ONLY the measurement target; exclude 측정일자, 결재, 측정자, and 확인자 metadata
-- "date" is from 측정일자 field
-- "criteria" is from 측정기준 section
-- "video_attached" is from 동영상 첨부 section
-- "judgment" is from 판정결과 section (적합 or 부적합)
-- Do not return field labels such as 측정결과 or 판정결과 as field values
-- Do not infer an AHU number from unrelated numbers; return "unknown" when the document has no AHU field
-- Extract data from ALL pages
-- Return ONLY the JSON, no markdown, no explanation"""
+- Create exactly one record per numbered measurement row and include ALL rows from ALL pages
+- "management_number" is from 관리번호 and "location" is from 측정위치
+- "grade" must be the row's cleanroom grade (A, B, C, or D)
+- "particle_05" and "particle_50" are handwritten integer counts from the 0.5 μm and 5.0 μm columns; return JSON numbers
+- Use enhanced table close-ups only to verify handwriting; they do not contain additional records
+- Carefully distinguish ambiguous handwritten digits such as 3/4, 1/7, 0/6, and 6/8 by their pen strokes
+- Never infer a measured value from a printed limit
+- Before returning JSON, compare each count with its grade limit and checked judgement; if they conflict, re-inspect the handwriting rather than changing a clearly written value
+- "judgement" must be exactly "적합" or "부적합"
+- Repeat the document-level criterion, judgement, and performed date in every record
+- Read "criteria_text" only from the printed 허용기준 section
+- Read "performed_date" only from the handwritten left-side Performed by date, never the right-side Verified by date
+- Normalize "performed_date" as YYYY.MM.DD and carefully distinguish handwritten 08 from 06
+- Preserve Korean text exactly and return ONLY the JSON, no markdown, no explanation"""
+
+
+def _normalize_gas_airborne_data(payload):
+    """Validate and normalize the flat record schema returned by OCR."""
+    normalized = []
+    seen = set()
+    if isinstance(payload, dict):
+        source = payload.get('records', [])
+    elif isinstance(payload, list):
+        source = payload
+    else:
+        source = []
+
+    for index, row in enumerate(source, start=1):
+        if not isinstance(row, dict):
+            continue
+        management_number = str(row.get('management_number', '')).strip()
+        location = str(row.get('location', '')).strip()
+        if not management_number or not location:
+            continue
+
+        particle_values = []
+        for field in ('particle_05', 'particle_50'):
+            match = re.search(r'-?[\d,]+(?:\.\d+)?', str(row.get(field, '')))
+            if not match:
+                particle_values.append(None)
+                continue
+            value = float(match.group(0).replace(',', ''))
+            particle_values.append(int(value) if value.is_integer() else value)
+        if particle_values == [None, None]:
+            continue
+
+        date_match = re.search(
+            r'(20\d{2})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})',
+            str(row.get('performed_date', '')),
+        )
+        performed_date = ''
+        if date_match:
+            year, month, day = date_match.groups()
+            performed_date = f'{year}.{int(month):02d}.{int(day):02d}'
+
+        record = {
+            'no': str(row.get('no', index)).strip(),
+            'management_number': management_number,
+            'location': location,
+            'grade': str(row.get('grade', '')).strip().upper(),
+            'particle_05': particle_values[0] if particle_values[0] is not None else 0,
+            'particle_50': particle_values[1] if particle_values[1] is not None else 0,
+            'judgement': '부적합' if str(row.get('judgement', '')).strip() == '부적합' else '적합',
+            'criteria_text': str(row.get('criteria_text', '')).strip(),
+            'performed_date': performed_date,
+        }
+        identity = tuple(
+            re.sub(r'\s+', '', str(record[field]))
+            for field in ('performed_date', 'no', 'management_number', 'location')
+        )
+        if identity not in seen:
+            seen.add(identity)
+            normalized.append(record)
+
+    return {'records': normalized}
 
 
 def extract_airborne_particle(pdf_path, api_key=None):
@@ -300,11 +371,46 @@ def extract_hepa_filter(pdf_path, api_key=None):
     return call_claude_api(images_b64, PROMPT_HEPA_FILTER, api_key)
 
 
-def extract_airflow_pattern(pdf_path, api_key=None):
-    """Extract data from Airflow Pattern Test PDF."""
-    images = pdf_to_images(pdf_path)
-    images_b64 = [image_to_base64(img) for img in images]
-    return call_claude_api(images_b64, PROMPT_AIRFLOW_PATTERN, api_key)
+def extract_gas_airborne_particle(pdf_path, api_key=None):
+    """Extract flat measurement rows from the gas-quality airborne log."""
+    images = pdf_to_images(pdf_path, dpi=200)
+    images_b64 = []
+    descriptions = []
+
+    for page_number, image in enumerate(images, start=1):
+        images_b64.append(image_to_base64(image))
+        descriptions.append(f"Full scanned document page {page_number}.")
+
+        width, height = image.size
+        table_detail = image.crop((
+            int(width * 0.02),
+            int(height * 0.07),
+            int(width * 0.98),
+            int(height * 0.48),
+        ))
+        table_detail = ImageEnhance.Contrast(table_detail).enhance(1.35)
+        table_detail = table_detail.filter(ImageFilter.SHARPEN)
+        images_b64.append(image_to_base64(table_detail))
+        descriptions.append(
+            f"Enhanced measurement-table close-up for page {page_number}; "
+            "use it only to verify handwritten values."
+        )
+
+    if images:
+        width, height = images[-1].size
+        date_detail = images[-1].crop((0, int(height * 0.68), int(width * 0.58), height))
+        images_b64.append(image_to_base64(date_detail))
+        descriptions.append(
+            "Close-up of the left-side Performed by signature and date from the final page."
+        )
+
+    payload = call_claude_api(
+        images_b64,
+        PROMPT_GAS_AIRBORNE_PARTICLE,
+        api_key,
+        image_descriptions=descriptions,
+    )
+    return _normalize_gas_airborne_data(payload)
 
 
 # Map test types to extraction functions
@@ -313,5 +419,5 @@ EXTRACTORS = {
     'air_velocity': extract_air_velocity,
     'air_change_rate': extract_air_change_rate,
     'hepa_filter': extract_hepa_filter,
-    'airflow_pattern': extract_airflow_pattern,
+    'gas_airborne_particle': extract_gas_airborne_particle,
 }

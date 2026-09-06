@@ -191,7 +191,7 @@
             <div class="test-type-grid" id="testTypeGrid">
                 <div class="test-type-btn" data-type="airborne_particle" onclick="selectType(this)">
                     <div class="label">A. Airborne Particle Test</div>
-                    <div class="desc" data-i18n="particleDesc">부유입자 측정 → Excel (4 sheets/AHU)</div>
+                    <div class="desc" data-i18n="particleDesc">부유입자 측정 → Excel (등급별 Pivot)</div>
                 </div>
                 <div class="test-type-btn" data-type="air_velocity" onclick="selectType(this)">
                     <div class="label">B. Air Velocity Test</div>
@@ -205,9 +205,9 @@
                     <div class="label">D. HEPA Filter Test</div>
                     <div class="desc" data-i18n="hepaDesc">HEPA 필터 검사 → Excel (3 sheets/AHU)</div>
                 </div>
-                <div class="test-type-btn" data-type="airflow_pattern" onclick="selectType(this)">
-                    <div class="label">E. Airflow Pattern Test</div>
-                    <div class="desc" data-i18n="airflowDesc">기류패턴 시험 → Excel (1 sheet/AHU)</div>
+                <div class="test-type-btn" data-type="gas_airborne_particle" onclick="selectType(this)">
+                    <div class="label">E. Airborne Particle for Gas Quality Verification Test</div>
+                    <div class="desc" data-i18n="gasAirborneDesc">가스 품질 부유입자 측정 → Excel (등급별 Pivot)</div>
                 </div>
             </div>
         </div>
@@ -216,7 +216,7 @@
         <div class="card">
             <h2><span class="step">2</span> <span data-i18n="uploadPdf">PDF 파일 업로드</span></h2>
             <div class="info-box" id="uploadRules">📄 <strong>업로드 규칙:</strong> 같은 측정 종류의 PDF만 업로드하세요.
-                여러 AHU의 PDF를 한 번에 업로드할 수 있습니다. 각 PDF = 1 AHU × 1 학기(semester)</div>
+                A~D는 각 PDF가 1 AHU × 1학기 자료이며, E는 가스 품질 부유입자 측정 일지입니다.</div>
             <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
                 <div class="icon">📁</div>
                 <div class="text" data-i18n="uploadAction">클릭하거나 파일을 드래그하세요</div>
@@ -243,14 +243,14 @@
         const translations = {
             ko: {
                 subtitle: '환경측정 PDF → Excel 자동 변환 시스템',
-                testType: '측정 종류 선택', particleDesc: '부유입자 측정 → Excel (4 sheets/AHU)',
+                testType: '측정 종류 선택', particleDesc: '부유입자 측정 → Excel (등급별 Pivot)',
                 velocityDesc: '풍속 측정 → Excel (3 sheets/AHU)', changeRateDesc: '환기횟수 측정 → Excel (3 sheets/AHU)',
-                hepaDesc: 'HEPA 필터 검사 → Excel (3 sheets/AHU)', airflowDesc: '기류패턴 시험 → Excel (1 sheet/AHU)',
+                hepaDesc: 'HEPA 필터 검사 → Excel (3 sheets/AHU)', gasAirborneDesc: '가스 품질 부유입자 측정 → Excel (등급별 Pivot)',
                 uploadPdf: 'PDF 파일 업로드', uploadAction: '클릭하거나 파일을 드래그하세요',
                 uploadHint: 'PDF 파일만 가능 (여러 파일 동시 업로드 가능)', generateExcel: 'Excel 파일 생성',
                 startGeneration: '🚀 Excel 자동 생성 시작', processing: '처리 중... (PDF 분석 중, 잠시 기다려주세요)',
                 processingStatus: '⏳ PDF를 AI가 분석하고 있습니다. PDF 수에 따라 1~5분 소요될 수 있습니다...',
-                error: '❌ 오류:', success: '✅ 성공!', processed: '개의 AHU 데이터가 처리되었습니다.', ahuList: 'AHU 목록:',
+                error: '❌ 오류:', success: '✅ 성공!', processed: '개의 AHU 데이터가 처리되었습니다.', recordsProcessed: '개의 측정 데이터가 처리되었습니다.', ahuList: 'AHU 목록:',
                 warning: '⚠️ 경고:', download: '다운로드', networkError: '❌ 네트워크 오류:',
                 toastErrorTitle: '처리 오류',
                 timeoutError: '처리 시간이 초과되었습니다. PDF 수를 줄여 여러 번 나누어 업로드해 주세요.',
@@ -258,17 +258,17 @@
                 serverRequestError: '서버에서 요청을 처리하지 못했습니다. 잠시 후 다시 시도하거나 PDF를 나누어 업로드해 주세요.',
                 invalidResponse: '서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.',
                 networkErrorMessage: '서버에 연결할 수 없습니다. 네트워크 상태를 확인한 후 다시 시도해 주세요.',
-                uploadRules: '📄 <strong>업로드 규칙:</strong> 같은 측정 종류의 PDF만 업로드하세요. 여러 AHU의 PDF를 한 번에 업로드할 수 있습니다. 각 PDF = 1 AHU × 1 학기(semester)'
+                uploadRules: '📄 <strong>업로드 규칙:</strong> 같은 측정 종류의 PDF만 업로드하세요. A~D는 각 PDF가 1 AHU × 1학기 자료이며, E는 가스 품질 부유입자 측정 일지입니다.'
             },
             en: {
                 subtitle: 'Environmental measurement PDF to Excel conversion system',
-                testType: 'Select Test Type', particleDesc: 'Airborne particle measurement → Excel (4 sheets/AHU)',
+                testType: 'Select Test Type', particleDesc: 'Airborne particle measurement → Excel (Pivot per grade)',
                 velocityDesc: 'Air velocity measurement → Excel (3 sheets/AHU)', changeRateDesc: 'Air change rate measurement → Excel (3 sheets/AHU)',
-                hepaDesc: 'HEPA filter test → Excel (3 sheets/AHU)', airflowDesc: 'Airflow pattern test → Excel (1 sheet/AHU)',
+                hepaDesc: 'HEPA filter test → Excel (3 sheets/AHU)', gasAirborneDesc: 'Gas-quality airborne particle measurement → Excel (Pivot per grade)',
                 uploadPdf: 'Upload PDF Files', uploadAction: 'Click or drag files here', uploadHint: 'PDF files only (multiple files supported)',
                 generateExcel: 'Generate Excel File', startGeneration: '🚀 Start Excel Generation',
                 processing: 'Processing... (Analyzing PDFs, please wait)', processingStatus: '⏳ AI is analyzing the PDFs. This may take 1 to 5 minutes depending on the number of files...',
-                error: '❌ Error:', success: '✅ Success!', processed: ' AHU data sets have been processed.', ahuList: 'AHU list:',
+                error: '❌ Error:', success: '✅ Success!', processed: ' AHU data sets have been processed.', recordsProcessed: ' measurement records have been processed.', ahuList: 'AHU list:',
                 warning: '⚠️ Warnings:', download: 'Download', networkError: '❌ Network error:',
                 toastErrorTitle: 'Processing error',
                 timeoutError: 'Processing timed out. Upload fewer PDFs and process them in smaller batches.',
@@ -276,7 +276,7 @@
                 serverRequestError: 'The server could not complete the request. Try again later or upload smaller batches.',
                 invalidResponse: 'The server returned an invalid response. Please try again later.',
                 networkErrorMessage: 'Unable to reach the server. Check your network connection and try again.',
-                uploadRules: '📄 <strong>Upload rules:</strong> Upload only PDFs of the same test type. You can upload PDFs for multiple AHUs at once. Each PDF = 1 AHU × 1 semester.'
+                uploadRules: '📄 <strong>Upload rules:</strong> Upload only PDFs of the same test type. For A–D, each PDF is 1 AHU × 1 semester. For E, upload gas-quality airborne particle logs.'
             }
         };
         let language = localStorage.getItem('language') || 'ko';
@@ -444,8 +444,13 @@
                     showProcessingError(statusMsg, data?.error || fallbackErrorForStatus(resp.status));
                 } else {
                     statusMsg.className = 'status-msg success';
-                    let msg = `${t('success')} ${data.ahu_count}${t('processed')}<br>`;
-                    msg += `${t('ahuList')} ${data.ahu_list.map(a => 'AHU-' + a).join(', ')}<br>`;
+                    let msg = `${t('success')} `;
+                    if (data.record_count !== undefined) {
+                        msg += `${data.record_count}${t('recordsProcessed')}<br>`;
+                    } else {
+                        msg += `${data.ahu_count}${t('processed')}<br>`;
+                        msg += `${t('ahuList')} ${data.ahu_list.map(a => 'AHU-' + a).join(', ')}<br>`;
+                    }
                     if (data.warnings && data.warnings.length > 0) {
                         msg += `<br>${t('warning')}<br>${data.warnings.join('<br>')}`;
                     }

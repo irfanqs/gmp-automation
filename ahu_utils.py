@@ -4,7 +4,6 @@ import re
 
 _DEFAULT_AHU_BY_TEST = {
     'airborne_particle': '33',
-    'airflow_pattern': '33',
 }
 
 _AHU_NUMBER_PATTERN = (

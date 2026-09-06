@@ -1,12 +1,15 @@
+from io import BytesIO
+import tempfile
 import unittest
+from unittest.mock import patch
 
+import app as app_module
 from ahu_utils import ahu_sort_key, default_ahu_for_test, extract_ahu_number
 
 
 class AhuNumberTest(unittest.TestCase):
-    def test_airborne_and_airflow_default_to_ahu_33(self):
+    def test_airborne_defaults_to_ahu_33(self):
         self.assertEqual(default_ahu_for_test('airborne_particle'), '33')
-        self.assertEqual(default_ahu_for_test('airflow_pattern'), '33')
         self.assertEqual(default_ahu_for_test('air_velocity'), 'unknown')
         self.assertEqual(
             extract_ahu_number(
@@ -42,15 +45,60 @@ class AhuNumberTest(unittest.TestCase):
         filename = '/tmp/uuid_AHU-33_hepa_filter.pdf'
         self.assertEqual(extract_ahu_number('1', filename), '33')
 
-    def test_airflow_uses_filename_before_default(self):
-        self.assertEqual(
-            extract_ahu_number('unknown', '/tmp/AHU-34_airflow.pdf', default='33'),
-            '34',
-        )
-        self.assertEqual(
-            extract_ahu_number('unknown', '/tmp/airflow.pdf', default='33'),
-            '33',
-        )
+
+class GasAirborneProcessTest(unittest.TestCase):
+    def test_processes_gas_airborne_in_one_request(self):
+        extracted_records = [{
+            'no': '1',
+            'management_number': 'CA-01',
+            'location': '충전 3실 (2505)',
+            'grade': 'B',
+            'particle_05': 13,
+            'particle_50': 0,
+            'judgement': '적합',
+            'criteria_text': '허용기준',
+            'performed_date': '2025.08.28',
+        }]
+        generated = {}
+
+        def extractor(_path, api_key=None):
+            self.assertEqual(api_key, 'test-key')
+            return {'records': extracted_records}
+
+        def generator(records, output_path):
+            generated['records'] = records
+            generated['output_path'] = output_path
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with (
+                patch.object(app_module, 'ANTHROPIC_API_KEY', 'test-key'),
+                patch.object(app_module, 'UPLOAD_FOLDER', temp_dir),
+                patch.object(app_module, 'OUTPUT_FOLDER', temp_dir),
+                patch.dict(
+                    app_module.CLAUDE_EXTRACTORS,
+                    {'gas_airborne_particle': extractor},
+                ),
+                patch.dict(
+                    app_module.GENERATORS,
+                    {'gas_airborne_particle': generator},
+                ),
+            ):
+                response = app_module.app.test_client().post(
+                    '/process',
+                    data={
+                        'test_type': 'gas_airborne_particle',
+                        'language': 'en',
+                        'pdf_files': (BytesIO(b'%PDF-1.4'), 'gas-test.pdf'),
+                    },
+                    content_type='multipart/form-data',
+                )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload['record_count'], 1)
+        self.assertNotIn('ahu_count', payload)
+        self.assertEqual(generated['records'], extracted_records)
+        self.assertTrue(generated['output_path'].endswith('.xlsx'))
 
 
 if __name__ == '__main__':

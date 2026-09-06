@@ -101,18 +101,26 @@ def process():
 
         # Extract data from each PDF
         extractor = CLAUDE_EXTRACTORS[test_type]
+        is_gas_airborne = test_type == 'gas_airborne_particle'
         all_ahu_data = {}
+        all_gas_records = []
         errors = []
 
         for pdf_path in saved_paths:
             try:
                 data = extractor(pdf_path, api_key=api_key)
+                if is_gas_airborne:
+                    records = data.get('records', [])
+                    if not records:
+                        raise ValueError(messages['empty_data'])
+                    all_gas_records.extend(records)
+                    continue
+
                 data_key = {
                     'airborne_particle': 'rooms',
                     'air_velocity': 'machines',
                     'air_change_rate': 'rooms',
                     'hepa_filter': 'items',
-                    'airflow_pattern': 'items',
                 }[test_type]
                 if not data.get(data_key):
                     raise ValueError(messages['empty_data'])
@@ -122,8 +130,6 @@ def process():
                     default=default_ahu_for_test(test_type),
                 )
                 date_str = data.get('date')
-                if not date_str and test_type == 'airflow_pattern':
-                    date_str = data['items'][0].get('date')
                 date_str = date_str or '2025.08.01'
                 semester_label = get_semester_label(date_str)
 
@@ -142,15 +148,14 @@ def process():
                     sem_entry['rooms'] = data.get('rooms', [])
                 elif test_type == 'hepa_filter':
                     sem_entry['items'] = data.get('items', [])
-                elif test_type == 'airflow_pattern':
-                    sem_entry['items'] = data.get('items', [])
 
                 all_ahu_data[ahu_num].append(sem_entry)
 
             except Exception as e:
                 errors.append(f"{messages['processing_error']} {os.path.basename(pdf_path)}: {str(e)}")
 
-        if not all_ahu_data:
+        collected_data = all_gas_records if is_gas_airborne else all_ahu_data
+        if not collected_data:
             error_msg = messages['extract_failed']
             if errors:
                 error_msg += "\n" + "\n".join(errors)
@@ -162,7 +167,7 @@ def process():
         output_filename = test_config['excel_filename']
         output_path = os.path.join(OUTPUT_FOLDER, output_filename)
 
-        generator(all_ahu_data, output_path)
+        generator(collected_data, output_path)
 
         # Clean up uploaded files
         for p in saved_paths:
@@ -175,9 +180,12 @@ def process():
             'success': True,
             'filename': output_filename,
             'download_url': f'/download/{output_filename}',
-            'ahu_count': len(all_ahu_data),
-            'ahu_list': sorted(all_ahu_data.keys(), key=ahu_sort_key),
         }
+        if is_gas_airborne:
+            result['record_count'] = len(all_gas_records)
+        else:
+            result['ahu_count'] = len(all_ahu_data)
+            result['ahu_list'] = sorted(all_ahu_data.keys(), key=ahu_sort_key)
 
         if errors:
             result['warnings'] = errors

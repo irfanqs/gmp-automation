@@ -37,13 +37,8 @@ AIRBORNE_PARTICLE = {
         '0.5': {'A': 46, 'B': 1254, 'C': 46804, 'D': 282780},
         '5.0': {'A': 8, 'B': 26, 'C': 2900, 'D': 16366},
     },
-    'frequency': {
-        'A': 6,   # months (6 = twice/year: Feb & Aug)
-        'B': 6,
-        'C': 12,  # months (12 = once/year: Aug only)
-        'D': 12,
-    },
-    'sheets_per_ahu': 4,  # Data, Table, 0.5, 5.0
+    'base_sheets_per_ahu': 2,  # Data and Table
+    'chart_sheets_per_grade': 2,  # Pivot 0.5 and Pivot 5.0
     'chart_y_max_05': 3000000,
     'chart_y_max_50': 30000,
 }
@@ -107,14 +102,17 @@ HEPA_FILTER = {
 }
 
 # =============================================================================
-# E. AIRFLOW PATTERN TEST
+# E. AIRBORNE PARTICLE FOR GAS QUALITY VERIFICATION TEST
 # =============================================================================
-AIRFLOW_PATTERN = {
-    'name': 'Airflow Pattern Test',
-    'korean_title': '기류패턴시험 기록서',
-    'excel_filename': 'Airflow_Pattern_Test_Result_and_Graph.xlsx',
-    'pass_value': '적합',
-    'sheets_per_ahu': 1,  # Only one sheet per AHU
+GAS_AIRBORNE_PARTICLE = {
+    'name': 'Airborne Particle for Gas Quality Verification Test',
+    'korean_title': '부유입자 측정 일지',
+    'excel_filename': 'Airborne_Particle_for_Gas_Quality_Verification_Test_Result_and_Graph.xlsx',
+    'alert_limits': {
+        '0.5': {'A': 23, 'B': 627, 'C': 23402, 'D': 141390},
+        '5.0': {'A': 4, 'B': 13, 'C': 1540, 'D': 8183},
+    },
+    'sheets_per_grade': 2,  # Pivot 0.5 and Pivot 5.0, plus one shared data sheet
 }
 
 # =============================================================================
@@ -168,5 +166,5 @@ TEST_TYPES = {
     'air_velocity': AIR_VELOCITY,
     'air_change_rate': AIR_CHANGE_RATE,
     'hepa_filter': HEPA_FILTER,
-    'airflow_pattern': AIRFLOW_PATTERN,
+    'gas_airborne_particle': GAS_AIRBORNE_PARTICLE,
 }

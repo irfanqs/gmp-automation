@@ -14,7 +14,8 @@ from openpyxl.utils import get_column_letter
 
 from ahu_utils import ahu_sort_key
 from config import (
-    AIRBORNE_PARTICLE, AIR_VELOCITY, AIR_CHANGE_RATE, HEPA_FILTER, AIRFLOW_PATTERN,
+    AIRBORNE_PARTICLE, AIR_VELOCITY, AIR_CHANGE_RATE, HEPA_FILTER,
+    GAS_AIRBORNE_PARTICLE,
     ALERT_FILL_RED, HEADER_FILL, WHITE_FILL,
     HEADER_FONT, TITLE_FONT, DATA_FONT,
     CENTER_ALIGN, LEFT_ALIGN, THIN_BORDER,
@@ -543,8 +544,24 @@ def generate_airborne_particle_excel(all_ahu_data, output_path=None):
         ahu_semesters.sort(key=lambda s: semester_sort_key(s['semester']))
         _create_airborne_data_sheet(wb, ahu_num, ahu_semesters)
         table_ws = _create_airborne_table_sheet(wb, ahu_num, ahu_semesters)
-        _create_airborne_chart_sheet(wb, ahu_num, table_ws, '0.5')
-        _create_airborne_chart_sheet(wb, ahu_num, table_ws, '5.0')
+        grades = [
+            grade
+            for grade in 'ABCD'
+            if any(
+                str(room.get('grade', '')).upper() == grade
+                for semester in ahu_semesters
+                for room in semester.get('rooms', [])
+            )
+        ]
+        for particle_size in ('0.5', '5.0'):
+            for grade in grades:
+                _create_airborne_chart_sheet(
+                    wb,
+                    ahu_num,
+                    table_ws,
+                    particle_size,
+                    grade,
+                )
     wb.save(output_path)
     return output_path
 
@@ -726,8 +743,8 @@ def _create_airborne_table_sheet(wb, ahu_num, ahu_semesters):
     return ws
 
 
-def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
-    """Create AHU-X chart sheet for Airborne Particle Test with multi-level X-axis and limit lines."""
+def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size, selected_grade):
+    """Create one AHU airborne chart for a particle size and cleanroom grade."""
     ps_key = '0.5' if particle_size == '0.5' else '5.0'
     value_col = 5 if particle_size == '0.5' else 6
 
@@ -739,7 +756,7 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
         name     = table_ws.cell(row=r, column=4).value
         value    = table_ws.cell(row=r, column=value_col).value
         semester = table_ws.cell(row=r, column=7).value
-        if name is None:
+        if name is None or grade != selected_grade:
             continue
         data_rows.append({'grade': grade, 'room_num': room_num, 'name': name,
                           'value': value, 'semester': semester,
@@ -751,14 +768,7 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
                           },
                           'value_ref': _cell_link_formula(table_ws, r, value_col)})
 
-    # The table is ordered with the latest semester first. Grade C and D are
-    # measured annually in August, so February charts only show Grades A and B.
-    latest_semester = table_ws.cell(row=2, column=7).value
-    if latest_semester and '상' in str(latest_semester):
-        data_rows = [row for row in data_rows if row['grade'] in ('A', 'B')]
-
     semesters = sorted({d['semester'] for d in data_rows if d['semester']}, key=semester_sort_key)
-    grades_present = sorted({d['grade'] for d in data_rows if d['grade']})
 
     alert_map  = AIRBORNE_PARTICLE['alert_limits'][ps_key]
     action_map = AIRBORNE_PARTICLE.get('action_limits', {}).get(ps_key, {})
@@ -767,21 +777,19 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
         for col in range(1, table_ws.max_column + 1)
     }
     limit_specs, colors, limit_refs = [], [], {}
-    for g in grades_present:
-        if g in alert_map:
-            label = f"{g} Grade 경고기준 = {alert_map[g]:,}"
-            limit_specs.append((label, alert_map[g]))
-            colors.append((_LIMIT_COLORS.get(g, {}).get('alert', 'C00000'), False))
-            source_row = next(row['table_row'] for row in data_rows if row['grade'] == g)
-            source_col = header_cols[f'{g} Grade 경고기준 ({ps_key}㎛)']
-            limit_refs[label] = _cell_link_formula(table_ws, source_row, source_col)
-        if g in action_map:
-            label = f"{g} Grade 조치기준 = {action_map[g]:,}"
-            limit_specs.append((label, action_map[g]))
-            colors.append((_LIMIT_COLORS.get(g, {}).get('action', 'FF3300'), True))
-            source_row = next(row['table_row'] for row in data_rows if row['grade'] == g)
-            source_col = header_cols[f'{g} Grade 조치기준 ({ps_key}㎛)']
-            limit_refs[label] = _cell_link_formula(table_ws, source_row, source_col)
+    source_row = data_rows[0]['table_row']
+    if selected_grade in alert_map:
+        label = f"{selected_grade} Grade 경고기준 = {alert_map[selected_grade]:,}"
+        limit_specs.append((label, alert_map[selected_grade]))
+        colors.append((_LIMIT_COLORS.get(selected_grade, {}).get('alert', 'C00000'), False))
+        source_col = header_cols[f'{selected_grade} Grade 경고기준 ({ps_key}㎛)']
+        limit_refs[label] = _cell_link_formula(table_ws, source_row, source_col)
+    if selected_grade in action_map:
+        label = f"{selected_grade} Grade 조치기준 = {action_map[selected_grade]:,}"
+        limit_specs.append((label, action_map[selected_grade]))
+        colors.append((_LIMIT_COLORS.get(selected_grade, {}).get('action', 'FF3300'), True))
+        source_col = header_cols[f'{selected_grade} Grade 조치기준 ({ps_key}㎛)']
+        limit_refs[label] = _cell_link_formula(table_ws, source_row, source_col)
 
     chart_values = [row['value'] for row in data_rows if row['value'] is not None]
     chart_values.extend(value for _, value in limit_specs)
@@ -789,15 +797,14 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size):
 
     return _make_chart_sheet(
         wb,
-        sheet_name=f"AHU-{ahu_num} {particle_size}",
-        chart_title=f"AHU-{ahu_num} {particle_size}µm",
+        sheet_name=f"AHU-{ahu_num} Pivot {particle_size}µm Grade {selected_grade}",
+        chart_title=f"AHU-{ahu_num} - {particle_size} µm - Grade {selected_grade}",
         cat_col_specs=[('청정등급', 'grade'), ('실번호', 'room_num'), ('실명', 'name')],
         data_rows_map=data_rows,
         semesters=semesters,
         limit_specs=limit_specs,
         limit_colors=colors,
         y_max_override=y_max,
-        hide_limit_legend=True,
         limit_refs=limit_refs,
         readable_x_labels=True,
     )
@@ -1523,69 +1530,185 @@ def _create_hepa_chart_sheet(wb, ahu_num, table_ws):
         limit_refs=limit_refs,
     )
 
+
 # =============================================================================
-# E. AIRFLOW PATTERN TEST EXCEL GENERATOR
+# E. AIRBORNE PARTICLE FOR GAS QUALITY VERIFICATION TEST
 # =============================================================================
 
-def generate_airflow_pattern_excel(all_ahu_data, output_path=None):
-    """Generate Airflow Pattern Test Result and Graph Excel file."""
+def _gas_date_sort_key(value):
+    parts = [int(part) for part in re.findall(r'\d+', str(value or ''))[:3]]
+    return tuple((parts + [0, 0, 0])[:3])
+
+
+def _gas_particle_value(value):
+    match = re.search(r'-?[\d,]+(?:\.\d+)?', str(value or ''))
+    if not match:
+        return 0
+    number = float(match.group(0).replace(',', ''))
+    return int(number) if number.is_integer() else number
+
+
+def generate_gas_airborne_particle_excel(records, output_path=None):
+    """Generate the flat gas-quality airborne data and chart workbook."""
+    if output_path is None:
+        output_path = os.path.join(
+            OUTPUT_FOLDER,
+            GAS_AIRBORNE_PARTICLE['excel_filename'],
+        )
+
+    records = sorted(
+        records,
+        key=lambda record: _gas_date_sort_key(record.get('performed_date')),
+        reverse=True,
+    )
     wb = Workbook()
     wb.remove(wb.active)
-
-    for ahu_num in sorted(all_ahu_data.keys(), key=ahu_sort_key):
-        ahu_semesters = all_ahu_data[ahu_num]
-        ahu_semesters.sort(key=lambda s: semester_sort_key(s['semester']))
-        _create_airflow_sheet(wb, ahu_num, ahu_semesters)
-
-    if output_path is None:
-        output_path = os.path.join(OUTPUT_FOLDER, AIRFLOW_PATTERN['excel_filename'])
+    _create_gas_airborne_data_sheet(wb, records)
+    grades = [
+        grade
+        for grade in 'ABCD'
+        if any(str(record.get('grade', '')).upper() == grade for record in records)
+    ]
+    for particle_size in ('0.5', '5.0'):
+        for grade in grades:
+            _create_gas_airborne_chart_sheet(wb, records, particle_size, grade)
     wb.save(output_path)
     return output_path
 
 
-def _create_airflow_sheet(wb, ahu_num, ahu_semesters):
-    """Create AHU-X sheet for Airflow Pattern Test."""
-    ws = wb.create_sheet(title=f"AHU-{ahu_num}")
+def _create_gas_airborne_data_sheet(wb, records):
+    ws = wb.create_sheet(title='데이터')
+    limits = GAS_AIRBORNE_PARTICLE['alert_limits']
+    headers = [
+        'No.', '관리번호', '측정 위치', 'Grade',
+        '0.5 μm 이상 부유입자 수/m³', '5.0 μm 이상 부유입자 수/m³',
+        '판정', 'Performed Date',
+    ]
+    headers += [f'{grade} Grade 경고기준 (0.5㎛)' for grade in 'ABCD']
+    headers += [f'{grade} Grade 경고기준 (5.0㎛)' for grade in 'ABCD']
 
-    # Headers (row 4)
-    headers = ['NO', '측정대상', '측정기준', '동영상 첨부', '판정결과', '측정일자']
-    for col_idx, val in enumerate(headers, 1):
-        cell = ws.cell(row=4, column=col_idx, value=val)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+    ws.cell(row=1, column=1, value=GAS_AIRBORNE_PARTICLE['korean_title'])
+    ws.cell(row=1, column=1).font = TITLE_FONT
+    ws.cell(row=1, column=1).alignment = CENTER_ALIGN
+
+    note = (
+        '허용기준 :\n'
+        '- Grade A: 0.5μm 이상 입자수: 23개/m³ 이하, 5μm 이상 입자수: 4개/m³ 이하\n'
+        '- Grade B: 0.5μm 이상 입자수: 627개/m³ 이하, 5μm 이상 입자수: 13개/m³ 이하\n'
+        '- Grade C: 0.5μm 이상 입자수: 23,402개/m³ 이하, 5μm 이상 입자수: 1,540개/m³ 이하\n'
+        '- Grade D: 0.5μm 이상 입자수: 141,390개/m³ 이하, 5μm 이상 입자수: 8,183개/m³ 이하'
+    )
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(headers))
+    ws.cell(row=2, column=1, value=note)
+    ws.cell(row=2, column=1).alignment = LEFT_ALIGN
+    ws.row_dimensions[2].height = 72
+
+    for column, header in enumerate(headers, start=1):
+        cell = ws.cell(row=5, column=column, value=header)
         apply_cell_style(cell, font=HEADER_FONT, fill=HEADER_FILL)
 
-    row = 5
-    no = 1
-    for sem_data in ahu_semesters:
-        semester_label = sem_data['semester']
-        items = sem_data['items']
+    for offset, record in enumerate(records, start=1):
+        row = 5 + offset
+        grade = str(record.get('grade', '')).upper()
+        particle_05 = _gas_particle_value(record.get('particle_05'))
+        particle_50 = _gas_particle_value(record.get('particle_50'))
+        values = [
+            offset,
+            record.get('management_number'),
+            record.get('location'),
+            grade,
+            particle_05,
+            particle_50,
+            record.get('judgement'),
+            record.get('performed_date'),
+        ]
+        values += [limits['0.5'][item_grade] for item_grade in 'ABCD']
+        values += [limits['5.0'][item_grade] for item_grade in 'ABCD']
 
-        for item in items:
-            ws.cell(row=row, column=1, value=no)
-            ws.cell(row=row, column=2, value=item['name'])
-            ws.cell(row=row, column=3, value=item['criteria'])
-            ws.cell(row=row, column=4, value=item['video_attached'])
+        for column, value in enumerate(values, start=1):
+            alignment = LEFT_ALIGN if column == 3 else CENTER_ALIGN
+            cell = ws.cell(row=row, column=column, value=value)
+            apply_cell_style(cell, alignment=alignment)
 
-            # Judgment with conditional formatting
-            judgment_cell = ws.cell(row=row, column=5, value=item['judgment'])
-            if item['judgment'] != AIRFLOW_PATTERN['pass_value']:
-                judgment_cell.fill = ALERT_FILL_RED
+        if grade in limits['0.5'] and particle_05 > limits['0.5'][grade]:
+            ws.cell(row=row, column=5).fill = ALERT_FILL_RED
+        if grade in limits['5.0'] and particle_50 > limits['5.0'][grade]:
+            ws.cell(row=row, column=6).fill = ALERT_FILL_RED
+        if record.get('judgement') != '적합':
+            ws.cell(row=row, column=7).fill = ALERT_FILL_RED
 
-            ws.cell(row=row, column=6, value=semester_label)
+    widths = {
+        'A': 8, 'B': 14, 'C': 28, 'D': 9,
+        'E': 24, 'F': 24, 'G': 12, 'H': 16,
+    }
+    for column, width in widths.items():
+        ws.column_dimensions[column].width = width
+    for column in range(9, 17):
+        ws.column_dimensions[get_column_letter(column)].width = 20
 
-            for c in range(1, 7):
-                apply_cell_style(ws.cell(row=row, column=c))
-
-            # Keep the two-line criteria and longer equipment names readable.
-            ws.row_dimensions[row].height = 54
-
-            no += 1
-            row += 1
-
-    widths = {'A': 6, 'B': 22, 'C': 45, 'D': 12, 'E': 12, 'F': 12}
-    for col, w in widths.items():
-        ws.column_dimensions[col].width = w
-
+    ws.freeze_panes = 'A6'
+    if records:
+        ws.auto_filter.ref = f'A5:P{5 + len(records)}'
     return ws
+
+
+def _create_gas_airborne_chart_sheet(wb, records, particle_size, selected_grade):
+    limits = GAS_AIRBORNE_PARTICLE['alert_limits'][particle_size]
+    field = 'particle_05' if particle_size == '0.5' else 'particle_50'
+    grouped = {}
+    for record in records:
+        if str(record.get('grade', '')).upper() != selected_grade:
+            continue
+        key = (
+            str(record.get('grade', '')).upper(),
+            str(record.get('management_number', '')),
+            str(record.get('location', '')),
+            str(record.get('performed_date', '')),
+        )
+        grouped.setdefault(key, []).append(_gas_particle_value(record.get(field)))
+
+    data_rows = [
+        {
+            'grade': grade,
+            'management_number': management_number,
+            'location': location,
+            'semester': performed_date,
+            'value': sum(values) / len(values),
+        }
+        for (grade, management_number, location, performed_date), values in grouped.items()
+    ]
+    dates = sorted(
+        {row['semester'] for row in data_rows if row['semester']},
+        key=_gas_date_sort_key,
+        reverse=True,
+    )
+    limit_specs = [(
+        f'{selected_grade} Grade 경고기준 = {limits[selected_grade]:,}',
+        limits[selected_grade],
+    )]
+    colors = [(_LIMIT_COLORS[selected_grade]['alert'], False)]
+    chart_max = max(
+        [row['value'] for row in data_rows] + [value for _, value in limit_specs] + [1]
+    )
+
+    return _make_chart_sheet(
+        wb,
+        sheet_name=f'Pivot {particle_size}µm Grade {selected_grade}',
+        chart_title=f'PivotChart {particle_size} µm - Grade {selected_grade}',
+        cat_col_specs=[
+            ('Grade', 'grade'),
+            ('관리번호', 'management_number'),
+            ('측정 위치', 'location'),
+        ],
+        category_key_fields=['grade', 'management_number'],
+        data_rows_map=data_rows,
+        semesters=dates,
+        limit_specs=limit_specs,
+        limit_colors=colors,
+        y_max_override=_nice_y_max(chart_max * 1.05),
+        readable_x_labels=True,
+    )
 
 
 # =============================================================================
@@ -1597,5 +1720,5 @@ GENERATORS = {
     'air_velocity': generate_air_velocity_excel,
     'air_change_rate': generate_air_change_rate_excel,
     'hepa_filter': generate_hepa_filter_excel,
-    'airflow_pattern': generate_airflow_pattern_excel,
+    'gas_airborne_particle': generate_gas_airborne_particle_excel,
 }

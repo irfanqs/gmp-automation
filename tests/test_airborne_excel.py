@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 import unittest
 
@@ -78,19 +79,77 @@ class AirborneParticleExcelTest(unittest.TestCase):
             workbook = load_workbook(path, data_only=False)
 
         sheet = workbook['AHU-37 Data']
+        table_sheet = workbook['AHU-37 Table']
         self.assertEqual(sheet.max_row, 38)
         self.assertEqual([sheet.cell(row, 1).value for row in range(9, 39)], list(range(1, 31)))
         self.assertEqual(sheet['D21'].value, '탈의실')
         self.assertEqual(sheet['F21'].value, 30760)
         self.assertEqual(sheet['H21'].value, 1340)
         self.assertEqual(sheet['D37'].value, '균주접종실 BSC')
-        for chart_sheet_name in ('AHU-37 0.5', 'AHU-37 5.0'):
-            chart = workbook[chart_sheet_name]._charts[0]
-            self.assertEqual(chart.x_axis.tickLblPos, 'low')
-            self.assertEqual(chart.x_axis.txPr.bodyPr.rot, 0)
-            self.assertEqual(chart.x_axis.txPr.p[0].pPr.defRPr.sz, 900)
-            self.assertEqual(chart.anchor.ext.height, 18 * 360000)
-            self.assertEqual(chart.anchor.ext.width, 49.5 * 360000)
+        for particle_size in ('0.5', '5.0'):
+            for grade in 'ABCD':
+                chart_sheet_name = f'AHU-37 Pivot {particle_size}µm Grade {grade}'
+                chart_sheet = workbook[chart_sheet_name]
+                chart = chart_sheet._charts[0]
+                headers = [
+                    chart_sheet.cell(row=1, column=column).value
+                    for column in range(1, chart_sheet.max_column + 1)
+                ]
+                grade_limits = [
+                    header for header in headers
+                    if isinstance(header, str) and 'Grade' in header and '기준 =' in header
+                ]
+                category_grades = []
+                for row in range(2, chart_sheet.max_row + 1):
+                    grade_ref = chart_sheet.cell(row=row, column=1).value
+                    match = re.search(r'\$B\$(\d+)$', str(grade_ref))
+                    self.assertIsNotNone(match)
+                    category_grades.append(
+                        table_sheet.cell(row=int(match.group(1)), column=2).value
+                    )
+
+                self.assertEqual(set(category_grades), {grade})
+                self.assertTrue(all(f'{grade} Grade' in header for header in grade_limits))
+                self.assertEqual(chart.x_axis.tickLblPos, 'low')
+                self.assertEqual(chart.x_axis.txPr.bodyPr.rot, 0)
+                self.assertEqual(chart.x_axis.txPr.p[0].pPr.defRPr.sz, 900)
+                self.assertEqual(chart.anchor.ext.height, 18 * 360000)
+
+    def test_keeps_annual_grades_when_latest_semester_is_first_half(self):
+        def room(grade, number):
+            return {
+                'grade': grade,
+                'room_number': number,
+                'room_name': f'Grade {grade} Room',
+                'measurements': [{'point': 1, 'value_05': 1, 'value_50': 0}],
+            }
+
+        data = {
+            '33': [
+                {
+                    'semester': '2026 (상)',
+                    'date': '2026.02.01',
+                    'rooms': [room('A', '1001'), room('B', '1002')],
+                },
+                {
+                    'semester': '2025 (하)',
+                    'date': '2025.08.01',
+                    'rooms': [room('C', '1003'), room('D', '1004')],
+                },
+            ],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = os.path.join(temp_dir, 'airborne-all-grades.xlsx')
+            generate_airborne_particle_excel(data, path)
+            workbook = load_workbook(path, data_only=False)
+
+        for particle_size in ('0.5', '5.0'):
+            for grade in 'ABCD':
+                self.assertIn(
+                    f'AHU-33 Pivot {particle_size}µm Grade {grade}',
+                    workbook.sheetnames,
+                )
 
 
 if __name__ == '__main__':
