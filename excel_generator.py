@@ -8,7 +8,7 @@ import math
 import re
 from copy import copy as _copy_obj
 from openpyxl import Workbook
-from openpyxl.chart import BarChart, LineChart, Reference
+from openpyxl.chart import BarChart, LineChart, Reference, ScatterChart, Series
 from openpyxl.chart.data_source import MultiLevelStrRef as _MultiLevelStrRef
 from openpyxl.utils import get_column_letter
 
@@ -54,6 +54,11 @@ def _unique_ordered(iterable):
         if x not in seen:
             seen.add(x); result.append(x)
     return result
+
+
+def _normalized_category_part(value):
+    """Normalize OCR spacing and punctuation for stable chart grouping."""
+    return re.sub(r'[\W_]+', '', str(value or '').casefold())
 
 
 def _cell_link_formula(ws, row, col):
@@ -138,6 +143,46 @@ def _build_linechart_for_limits(ws, limit_specs, colors, header_row,
             )
         # Labels are staggered across categories to reduce overlap.
     return line
+
+
+def _build_scatterchart_for_limits(ws, limit_specs, colors, n_items, y_max, start_col):
+    """Create full-width horizontal limits, including for one-category charts."""
+    x_col = start_col
+    x_max = max(n_items, 1) + 1
+    ws.cell(row=1, column=x_col, value='Limit X')
+    ws.cell(row=2, column=x_col, value=0)
+    ws.cell(row=3, column=x_col, value=x_max)
+    ws.column_dimensions[get_column_letter(x_col)].hidden = True
+    x_values = Reference(ws, min_col=x_col, min_row=2, max_row=3)
+
+    scatter = ScatterChart()
+    scatter.scatterStyle = 'line'
+    scatter.x_axis.axId = 1000
+    scatter.y_axis.axId = 2000
+    scatter.x_axis.crossAx = 2000
+    scatter.y_axis.crossAx = 1000
+    scatter.x_axis.scaling.min = 0
+    scatter.x_axis.scaling.max = x_max
+    scatter.y_axis.scaling.min = 0
+    scatter.y_axis.scaling.max = y_max
+    scatter.x_axis.delete = True
+    scatter.y_axis.delete = True
+    scatter.x_axis.axPos = 't'
+    scatter.y_axis.axPos = 'r'
+    scatter.y_axis.majorGridlines = None
+
+    for offset, ((label, value), color) in enumerate(zip(limit_specs, colors), start=1):
+        col = start_col + offset
+        ws.cell(row=1, column=col, value=f'Limit Y {offset}')
+        ws.cell(row=2, column=col, value=value)
+        ws.cell(row=3, column=col, value=value)
+        ws.column_dimensions[get_column_letter(col)].hidden = True
+        y_values = Reference(ws, min_col=col, min_row=2, max_row=3)
+        series = Series(y_values, x_values, title=label)
+        _style_limit_series(series, color[0], color[1])
+        scatter.series.append(series)
+
+    return scatter
 
 
 def _write_label_column(ws, data_end_row, source_cols, label_col, header='표시명', separator='\n'):
@@ -264,7 +309,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
                        show_limit_labels=False, hide_limit_legend=False,
                        limit_refs=None, series_label_suffix='',
                        solid_limit_lines=False, category_key_fields=None,
-                       readable_x_labels=False):
+                       readable_x_labels=False, full_width_limit_lines=False):
     """
     Generic chart sheet builder.
 
@@ -427,13 +472,23 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
 
     # ── Limit line chart ──────────────────────────────────────────────────────
     if vis_specs:
-        line = _build_linechart_for_limits(
-            ws, vis_specs, vis_colors, 1, 2, data_end_row, limit_start_col,
-            show_labels=show_limit_labels,
-            solid_lines=solid_limit_lines,
-        )
-        if line:
-            bar += line
+        if full_width_limit_lines:
+            limit_chart = _build_scatterchart_for_limits(
+                ws,
+                vis_specs,
+                vis_colors,
+                n_items,
+                y_max,
+                label_col + 1,
+            )
+        else:
+            limit_chart = _build_linechart_for_limits(
+                ws, vis_specs, vis_colors, 1, 2, data_end_row, limit_start_col,
+                show_labels=show_limit_labels,
+                solid_lines=solid_limit_lines,
+            )
+        if limit_chart:
+            bar += limit_chart
             if hide_limit_legend:
                 _hide_limit_lines_from_legend(bar, n_sems, len(vis_specs))
 
@@ -758,7 +813,12 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size, selected_
         semester = table_ws.cell(row=r, column=7).value
         if name is None or grade != selected_grade:
             continue
+        category_id = tuple(
+            _normalized_category_part(value)
+            for value in (grade, room_num, name)
+        )
         data_rows.append({'grade': grade, 'room_num': room_num, 'name': name,
+                          'category_id': category_id,
                           'value': value, 'semester': semester,
                           'table_row': r,
                           'source_refs': {
@@ -800,6 +860,7 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size, selected_
         sheet_name=f"AHU-{ahu_num} Pivot {particle_size}µm Grade {selected_grade}",
         chart_title=f"AHU-{ahu_num} - {particle_size} µm - Grade {selected_grade}",
         cat_col_specs=[('청정등급', 'grade'), ('실번호', 'room_num'), ('실명', 'name')],
+        category_key_fields=['category_id'],
         data_rows_map=data_rows,
         semesters=semesters,
         limit_specs=limit_specs,
@@ -807,6 +868,7 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size, selected_
         y_max_override=y_max,
         limit_refs=limit_refs,
         readable_x_labels=True,
+        full_width_limit_lines=True,
     )
 
 # =============================================================================
@@ -1673,6 +1735,10 @@ def _create_gas_airborne_chart_sheet(wb, records, particle_size, selected_grade)
             'grade': grade,
             'management_number': management_number,
             'location': location,
+            'category_id': tuple(
+                _normalized_category_part(value)
+                for value in (grade, management_number)
+            ),
             'semester': performed_date,
             'value': sum(values) / len(values),
         }
@@ -1701,13 +1767,14 @@ def _create_gas_airborne_chart_sheet(wb, records, particle_size, selected_grade)
             ('관리번호', 'management_number'),
             ('측정 위치', 'location'),
         ],
-        category_key_fields=['grade', 'management_number'],
+        category_key_fields=['category_id'],
         data_rows_map=data_rows,
         semesters=dates,
         limit_specs=limit_specs,
         limit_colors=colors,
         y_max_override=_nice_y_max(chart_max * 1.05),
         readable_x_labels=True,
+        full_width_limit_lines=True,
     )
 
 

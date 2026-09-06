@@ -102,6 +102,8 @@ class AirborneParticleExcelTest(unittest.TestCase):
                 category_grades = []
                 for row in range(2, chart_sheet.max_row + 1):
                     grade_ref = chart_sheet.cell(row=row, column=1).value
+                    if grade_ref is None:
+                        continue
                     match = re.search(r'\$B\$(\d+)$', str(grade_ref))
                     self.assertIsNotNone(match)
                     category_grades.append(
@@ -114,6 +116,12 @@ class AirborneParticleExcelTest(unittest.TestCase):
                 self.assertEqual(chart.x_axis.txPr.bodyPr.rot, 0)
                 self.assertEqual(chart.x_axis.txPr.p[0].pPr.defRPr.sz, 900)
                 self.assertEqual(chart.anchor.ext.height, 18 * 360000)
+                limit_chart = chart._charts[1]
+                self.assertEqual(type(limit_chart).__name__, 'ScatterChart')
+                self.assertEqual(len(limit_chart.ser), 2)
+                for series in limit_chart.ser:
+                    self.assertRegex(series.xVal.numRef.f, r'\$[A-Z]+\$2:\$[A-Z]+\$3$')
+                    self.assertRegex(series.yVal.numRef.f, r'\$[A-Z]+\$2:\$[A-Z]+\$3$')
 
     def test_keeps_annual_grades_when_latest_semester_is_first_half(self):
         def room(grade, number):
@@ -136,6 +144,14 @@ class AirborneParticleExcelTest(unittest.TestCase):
                     'date': '2025.08.01',
                     'rooms': [room('C', '1003'), room('D', '1004')],
                 },
+                {
+                    'semester': '2024 (하)',
+                    'date': '2024.08.01',
+                    'rooms': [{
+                        **room('C', '1003'),
+                        'room_name': 'Grade   C Room',
+                    }],
+                },
             ],
         }
 
@@ -150,6 +166,15 @@ class AirborneParticleExcelTest(unittest.TestCase):
                     f'AHU-33 Pivot {particle_size}µm Grade {grade}',
                     workbook.sheetnames,
                 )
+
+        grade_c_sheet = workbook['AHU-33 Pivot 0.5µm Grade C']
+        self.assertEqual(
+            len([
+                row for row in range(2, grade_c_sheet.max_row + 1)
+                if grade_c_sheet.cell(row=row, column=1).value is not None
+            ]),
+            1,
+        )
 
 
 if __name__ == '__main__':

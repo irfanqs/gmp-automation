@@ -78,12 +78,27 @@ class GasAirborneParticleExcelTest(unittest.TestCase):
 
                 self.assertEqual(len(chart_sheet._charts), 1)
                 self.assertEqual(
-                    {chart_sheet.cell(row=row, column=1).value for row in range(2, chart_sheet.max_row + 1)},
+                    {
+                        chart_sheet.cell(row=row, column=1).value
+                        for row in range(2, chart_sheet.max_row + 1)
+                        if chart_sheet.cell(row=row, column=1).value is not None
+                    },
                     {grade},
                 )
                 self.assertEqual(
                     grade_limits,
                     [f'{grade} Grade 경고기준 = {expected_limit}'],
+                )
+                limit_chart = chart_sheet._charts[0]._charts[1]
+                self.assertEqual(type(limit_chart).__name__, 'ScatterChart')
+                self.assertEqual(len(limit_chart.ser), 1)
+                self.assertRegex(
+                    limit_chart.ser[0].xVal.numRef.f,
+                    r'\$[A-Z]+\$2:\$[A-Z]+\$3$',
+                )
+                self.assertRegex(
+                    limit_chart.ser[0].yVal.numRef.f,
+                    r'\$[A-Z]+\$2:\$[A-Z]+\$3$',
                 )
 
     def test_keeps_all_available_grades_when_latest_date_is_first_half(self):
