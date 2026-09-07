@@ -118,11 +118,12 @@ class AirborneParticleExcelTest(unittest.TestCase):
                 self.assertEqual(chart.anchor.ext.height, 18 * 360000)
                 self.assertFalse(chart.visible_cells_only)
                 limit_chart = chart._charts[1]
-                self.assertEqual(type(limit_chart).__name__, 'ScatterChart')
+                self.assertEqual(type(limit_chart).__name__, 'LineChart')
+                self.assertIsNone(limit_chart.y_axis.majorGridlines)
+                self.assertEqual(limit_chart.y_axis.crossBetween, 'midCat')
                 self.assertEqual(len(limit_chart.ser), 2)
                 for series in limit_chart.ser:
-                    self.assertRegex(series.xVal.numRef.f, r'\$[A-Z]+\$2:\$[A-Z]+\$3$')
-                    self.assertRegex(series.yVal.numRef.f, r'\$[A-Z]+\$2:\$[A-Z]+\$3$')
+                    self.assertRegex(series.val.numRef.f, r'\$[A-Z]+\$2:\$[A-Z]+\$3$')
 
     def test_keeps_annual_grades_when_latest_semester_is_first_half(self):
         def room(grade, number):

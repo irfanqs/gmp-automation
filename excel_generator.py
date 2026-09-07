@@ -6,10 +6,12 @@ Generates formatted Excel files for all 5 test types.
 import os
 import math
 import re
+import unicodedata
 from copy import copy as _copy_obj
 from openpyxl import Workbook
-from openpyxl.chart import BarChart, LineChart, Reference, ScatterChart, Series
+from openpyxl.chart import BarChart, LineChart, Reference
 from openpyxl.chart.data_source import MultiLevelStrRef as _MultiLevelStrRef
+from openpyxl.chart.series import SeriesLabel
 from openpyxl.utils import get_column_letter
 
 from ahu_utils import ahu_sort_key
@@ -58,7 +60,14 @@ def _unique_ordered(iterable):
 
 def _normalized_category_part(value):
     """Normalize OCR spacing and punctuation for stable chart grouping."""
-    return re.sub(r'[\W_]+', '', str(value or '').casefold())
+    normalized = unicodedata.normalize('NFKC', str(value or '')).casefold()
+    return re.sub(r'[\W_]+', '', normalized)
+
+
+def _normalized_airborne_name(value):
+    """Treat OCR variants of a BSC in the same grade and room as one category."""
+    normalized = _normalized_category_part(value)
+    return 'bsc' if 'bsc' in normalized else normalized
 
 
 def _cell_link_formula(ws, row, col):
@@ -145,44 +154,38 @@ def _build_linechart_for_limits(ws, limit_specs, colors, header_row,
     return line
 
 
-def _build_scatterchart_for_limits(ws, limit_specs, colors, n_items, y_max, start_col):
+def _build_full_width_linechart_for_limits(ws, limit_specs, colors, y_max, start_col):
     """Create full-width horizontal limits, including for one-category charts."""
-    x_col = start_col
-    x_max = max(n_items, 1) + 1
-    ws.cell(row=1, column=x_col, value='Limit X')
-    ws.cell(row=2, column=x_col, value=0)
-    ws.cell(row=3, column=x_col, value=x_max)
-    ws.column_dimensions[get_column_letter(x_col)].hidden = True
-    x_values = Reference(ws, min_col=x_col, min_row=2, max_row=3)
+    line = LineChart()
+    line.grouping = 'standard'
+    line.x_axis.axId = 1000
+    line.y_axis.axId = 2000
+    line.x_axis.crossAx = 2000
+    line.y_axis.crossAx = 1000
+    line.x_axis.scaling.min = 1
+    line.x_axis.scaling.max = 2
+    line.y_axis.scaling.min = 0
+    line.y_axis.scaling.max = y_max
+    line.y_axis.crossBetween = 'midCat'
+    line.x_axis.delete = True
+    line.y_axis.delete = True
+    line.x_axis.axPos = 't'
+    line.y_axis.axPos = 'r'
+    line.y_axis.majorGridlines = None
 
-    scatter = ScatterChart()
-    scatter.scatterStyle = 'line'
-    scatter.x_axis.axId = 1000
-    scatter.y_axis.axId = 2000
-    scatter.x_axis.crossAx = 2000
-    scatter.y_axis.crossAx = 1000
-    scatter.x_axis.scaling.min = 0
-    scatter.x_axis.scaling.max = x_max
-    scatter.y_axis.scaling.min = 0
-    scatter.y_axis.scaling.max = y_max
-    scatter.x_axis.delete = True
-    scatter.y_axis.delete = True
-    scatter.x_axis.axPos = 't'
-    scatter.y_axis.axPos = 'r'
-    scatter.y_axis.majorGridlines = None
-
-    for offset, ((label, value), color) in enumerate(zip(limit_specs, colors), start=1):
+    for offset, ((label, value), color) in enumerate(zip(limit_specs, colors)):
         col = start_col + offset
-        ws.cell(row=1, column=col, value=f'Limit Y {offset}')
+        ws.cell(row=1, column=col, value=f'Limit Y {offset + 1}')
         ws.cell(row=2, column=col, value=value)
         ws.cell(row=3, column=col, value=value)
         ws.column_dimensions[get_column_letter(col)].hidden = True
-        y_values = Reference(ws, min_col=col, min_row=2, max_row=3)
-        series = Series(y_values, x_values, title=label)
+        values = Reference(ws, min_col=col, min_row=2, max_row=3)
+        line.add_data(values, titles_from_data=False)
+        series = line.series[-1]
+        series.tx = SeriesLabel(v=label)
         _style_limit_series(series, color[0], color[1])
-        scatter.series.append(series)
 
-    return scatter
+    return line
 
 
 def _write_label_column(ws, data_end_row, source_cols, label_col, header='표시명', separator='\n'):
@@ -474,11 +477,10 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     if vis_specs:
         if full_width_limit_lines:
             bar.visible_cells_only = False
-            limit_chart = _build_scatterchart_for_limits(
+            limit_chart = _build_full_width_linechart_for_limits(
                 ws,
                 vis_specs,
                 vis_colors,
-                n_items,
                 y_max,
                 label_col + 1,
             )
@@ -814,9 +816,10 @@ def _create_airborne_chart_sheet(wb, ahu_num, table_ws, particle_size, selected_
         semester = table_ws.cell(row=r, column=7).value
         if name is None or grade != selected_grade:
             continue
-        category_id = tuple(
-            _normalized_category_part(value)
-            for value in (grade, room_num, name)
+        category_id = (
+            _normalized_category_part(grade),
+            _normalized_category_part(room_num),
+            _normalized_airborne_name(name),
         )
         data_rows.append({'grade': grade, 'room_num': room_num, 'name': name,
                           'category_id': category_id,
