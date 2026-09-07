@@ -1560,6 +1560,10 @@ def _create_hepa_chart_sheet(wb, ahu_num, table_ws):
         if name is None:
             continue
         data_rows.append({'room_num': room_num, 'name': name,
+                          'category_id': tuple(
+                              _normalized_category_part(item)
+                              for item in (room_num, name)
+                          ),
                           'value': value, 'semester': semester,
                           'table_row': r,
                           'source_refs': {
@@ -1586,6 +1590,7 @@ def _create_hepa_chart_sheet(wb, ahu_num, table_ws):
         sheet_name=f"AHU-{ahu_num} Pivot",
         chart_title=f"AHU-{ahu_num}",
         cat_col_specs=[('실번호', 'room_num'), ('실명', 'name')],
+        category_key_fields=['category_id'],
         data_rows_map=data_rows,
         semesters=semesters,
         limit_specs=limit_specs,
