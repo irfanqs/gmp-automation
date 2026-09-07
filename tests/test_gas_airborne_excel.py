@@ -77,6 +77,7 @@ class GasAirborneParticleExcelTest(unittest.TestCase):
                 }[(particle_size, grade)]
 
                 self.assertEqual(len(chart_sheet._charts), 1)
+                self.assertFalse(chart_sheet._charts[0].visible_cells_only)
                 self.assertEqual(
                     {
                         chart_sheet.cell(row=row, column=1).value

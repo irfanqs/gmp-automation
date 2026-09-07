@@ -116,6 +116,7 @@ class AirborneParticleExcelTest(unittest.TestCase):
                 self.assertEqual(chart.x_axis.txPr.bodyPr.rot, 0)
                 self.assertEqual(chart.x_axis.txPr.p[0].pPr.defRPr.sz, 900)
                 self.assertEqual(chart.anchor.ext.height, 18 * 360000)
+                self.assertFalse(chart.visible_cells_only)
                 limit_chart = chart._charts[1]
                 self.assertEqual(type(limit_chart).__name__, 'ScatterChart')
                 self.assertEqual(len(limit_chart.ser), 2)

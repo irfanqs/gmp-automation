@@ -473,6 +473,7 @@ def _make_chart_sheet(wb, sheet_name, chart_title,
     # ── Limit line chart ──────────────────────────────────────────────────────
     if vis_specs:
         if full_width_limit_lines:
+            bar.visible_cells_only = False
             limit_chart = _build_scatterchart_for_limits(
                 ws,
                 vis_specs,
